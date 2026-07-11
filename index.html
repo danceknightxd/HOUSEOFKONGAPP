@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Throne</title>
+<meta name="description" content="The Throne — House of Kong. News, fitness, productivity, goals, social and private messaging in one seat of power.">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192-apple.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cinzel:wght@400;600;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --black:#000000;
+    --ink:#0a0a0a;
+    --panel:#121110;
+    --panel-2:#17140f;
+    --hairline:#2a251c;
+    --gold:#c9a84c;
+    --gold-bright:#e8c766;
+    --gold-dim:#8a7136;
+    --ivory:#f2ede2;
+    --ivory-dim:#a9a290;
+    --red:#8c3b34;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--black);
+    color:var(--ivory);
+    font-family:'Cormorant Garamond', serif;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--gold); color:#000;}
+  ::-webkit-scrollbar{width:6px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--hairline); border-radius:3px;}
+
+  .display{font-family:'Bebas Neue', sans-serif; letter-spacing:0.04em;}
+  .crest{font-family:'Cinzel', serif;}
+  .mono{font-family:'Space Mono', monospace;}
+
+  /* ambient texture */
+  .app{
+    position:relative;
+    height:100vh;
+    display:grid;
+    grid-template-columns:78px 1fr;
+  }
+  .app::before{
+    content:'';
+    position:fixed; inset:0;
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(201,168,76,0.07), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 110% 10%, rgba(201,168,76,0.05), transparent 60%);
+    pointer-events:none; z-index:0;
+  }
+
+  /* ---------- SIDEBAR ---------- */
+  .rail{
+    position:relative; z-index:2;
+    background:linear-gradient(180deg, var(--ink), #000);
+    border-right:1px solid var(--hairline);
+    display:flex; flex-direction:column; align-items:center;
+    padding:22px 0 18px;
+  }
+  .seal{
+    width:42px; height:42px; margin-bottom:34px; position:relative;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+  .seal svg{ width:100%; height:100%; }
+  .seal .ring{ transform-origin:center; animation:spin 40s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .seal .ring2{ transform-origin:center; animation:spin 60s linear infinite reverse; }
+
+  .rail-nav{ display:flex; flex-direction:column; gap:6px; flex:1; }
+  .rail-btn{
+    width:46px; height:46px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    color:var(--ivory-dim); background:transparent; border:1px solid transparent;
+    cursor:pointer; transition:all .25s ease; position:relative;
+  }
+  .rail-btn svg{ width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.5; }
+  .rail-btn:hover{ color:var(--gold-bright); background:rgba(201,168,76,0.06); }
+  .rail-btn.active{ color:#000; background:var(--gold); border-color:var(--gold-bright); }
+  .rail-btn.active svg{ stroke:#000; }
+  .rail-btn .dot{
+    position:absolute; left:-11px; top:50%; transform:translateY(-50%);
+    width:3px; height:3px; border-radius:50%; background:var(--gold);
+    opacity:0; transition:opacity .2s;
+  }
+  .rail-btn.active .dot{ opacity:1; }
+  .rail-tip{
+    position:absolute; left:60px; top:50%; transform:translateY(-50%);
+    background:#000; border:1px solid var(--hairline); color:var(--gold-bright);
+    font-family:'Space Mono',monospace; font-size:10.5px; letter-spacing:.08em;
+    padding:6px 10px; white-space:nowrap; opacity:0; pointer-events:none;
+    transition:opacity .15s; text-transform:uppercase; z-index:50;
+  }
+  .rail-btn:hover .rail-tip{ opacity:1; }
+
+  .rail-foot{ display:flex; flex-direction:column; align-items:center; gap:14px; }
+  .avatar{
+    width:36px; height:36px; border-radius:50%;
+    background:linear-gradient(145deg, #2a2416, #0d0b07);
+    border:1px solid var(--gold-dim);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Cinzel',serif; font-size:12px; color:var(--gold-bright); cursor:pointer;
+  }
+
+  /* ---------- MAIN ---------- */
+  .main{ position:relative; z-index:1; height:100vh; overflow-y:auto; }
+  .topbar{
+    position:sticky; top:0; z-index:10;
+    background:rgba(5,5,4,0.85); backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--hairline);
+    padding:20px 40px; display:flex; align-items:center; justify-content:space-between;
+  }
+  .brandline{ display:flex; align-items:baseline; gap:12px; }
+  .brandline .wordmark{ font-size:26px; letter-spacing:.12em; color:var(--ivory); }
+  .brandline .wordmark span{ color:var(--gold); }
+  .brandline .tag{ font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.16em; color:var(--ivory-dim); text-transform:uppercase; }
+  .top-right{ display:flex; align-items:center; gap:22px; }
+  .clockbox{ text-align:right; }
+  .clockbox .time{ font-family:'Space Mono',monospace; font-size:13px; color:var(--gold-bright); }
+  .clockbox .date{ font-family:'Space Mono',monospace; font-size:10px; color:var(--ivory-dim); }
+  .vault-pill{
+    display:flex; align-items:center; gap:7px;
+    border:1px solid var(--hairline); padding:6px 12px; border-radius:20px;
+    font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.06em; color:var(--ivory-dim);
+  }
+  .vault-pill .pulse{ width:6px; height:6px; border-radius:50%; background:#5c8f6b; box-shadow:0 0 8px #5c8f6b; animation:pulse 2s infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+
+  .view{ display:none; padding:36px 40px 80px; max-width:1400px; }
+  .view.active{ display:block; animation:rise .4s ease both; }
+  @keyframes rise{ from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+
+  .eyebrow{ font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.2em; color:var(--gold); text-transform:uppercase; margin-bottom:6px; }
+  h1.page-title{ font-family:'Bebas Neue',sans-serif; font-size:44px; letter-spacing:.03em; color:var(--ivory); line-height:1; margin-bottom:6px; }
+  .page-sub{ color:var(--ivory-dim); font-size:16px; font-style:italic; margin-bottom:32px; }
+
+  /* generic panel */
+  .panel{
+    background:linear-gradient(180deg, var(--panel), var(--panel-2));
+    border:1px solid var(--hairline); border-radius:14px; padding:24px;
+  }
+  .panel-head{ display:flex; align-items:center; justify-content:between; justify-content:space-between; margin-bottom:16px; }
+  .panel-head h3{ font-family:'Cinzel',serif; font-size:15px; letter-spacing:.05em; color:var(--gold-bright); text-transform:uppercase; }
+  .panel-head .count{ font-family:'Space Mono',monospace; font-size:11px; color:var(--ivory-dim); }
+
+  /* ---------- DASHBOARD GRID ---------- */
+  .grid{ display:grid; grid-template-columns:repeat(12,1fr); gap:18px; }
+  .c4{ grid-column:span 4; } .c5{grid-column:span 5;} .c7{grid-column:span 7;} .c8{grid-column:span 8;} .c12{grid-column:span 12;} .c6{grid-column:span 6;}
+
+  .stat-row{ display:flex; gap:18px; margin-bottom:20px; }
+  .stat{ flex:1; }
+  .stat .k{ font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.14em; color:var(--ivory-dim); text-transform:uppercase; }
+  .stat .v{ font-family:'Bebas Neue',sans-serif; font-size:38px; color:var(--ivory); line-height:1.1; }
+  .stat .v small{ font-family:'Space Mono',monospace; font-size:13px; color:var(--gold); }
+  .stat .delta{ font-family:'Space Mono',monospace; font-size:11px; color:#7ba885; }
+  .stat .delta.down{ color:#b06a5f; }
+
+  .divider{ height:1px; background:linear-gradient(90deg, var(--hairline), transparent); margin:18px 0; }
+
+  /* news list */
+  .news-item{ display:flex; gap:14px; padding:14px 0; border-bottom:1px solid var(--hairline); cursor:pointer; }
+  .news-item:last-child{ border-bottom:none; }
+  .news-thumb{ width:64px; height:64px; border-radius:8px; flex-shrink:0; background:linear-gradient(145deg,#221d12,#0c0a06); border:1px solid var(--hairline); display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .news-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .news-thumb svg{ width:22px; height:22px; stroke:var(--gold); fill:none; stroke-width:1.3; }
+  .news-body .topic{ font-family:'Space Mono',monospace; font-size:9.5px; letter-spacing:.1em; color:var(--gold); text-transform:uppercase; }
+  .news-body h4{ font-family:'Cormorant Garamond',serif; font-weight:600; font-size:18px; color:var(--ivory); margin:3px 0; }
+  .news-body .meta{ font-family:'Space Mono',monospace; font-size:10px; color:var(--ivory-dim); }
+
+  .chip{ display:inline-flex; align-items:center; gap:6px; padding:6px 13px; border-radius:20px; border:1px solid var(--hairline); font-family:'Space Mono',monospace; font-size:11px; color:var(--ivory-dim); cursor:pointer; transition:all .2s; }
+  .chip:hover, .chip.on{ border-color:var(--gold); color:var(--gold-bright); background:rgba(201,168,76,0.06); }
+  .chip-row{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:22px; }
+
+  /* fitness */
+  .ring-wrap{ display:flex; align-items:center; justify-content:center; padding:14px 0 6px; }
+  .ring-label{ text-align:center; margin-top:10px; }
+  .ring-label .big{ font-family:'Bebas Neue',sans-serif; font-size:30px; color:var(--ivory); }
+  .ring-label .small{ font-family:'Space Mono',monospace; font-size:10px; color:var(--ivory-dim); letter-spacing:.1em; text-transform:uppercase; }
+
+  .bar-row{ display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+  .bar-row .lbl{ width:110px; font-family:'Space Mono',monospace; font-size:11px; color:var(--ivory-dim); flex-shrink:0; }
+  .bar-track{ flex:1; height:7px; border-radius:4px; background:#1c1811; overflow:hidden; }
+  .bar-fill{ height:100%; border-radius:4px; background:linear-gradient(90deg, var(--gold-dim), var(--gold-bright)); }
+  .bar-row .val{ font-family:'Space Mono',monospace; font-size:11px; color:var(--gold-bright); width:50px; text-align:right; flex-shrink:0; }
+
+  /* goals */
+  .goal-card{ padding:18px; border:1px solid var(--hairline); border-radius:12px; margin-bottom:14px; background:rgba(255,255,255,0.01); }
+  .goal-top{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; }
+  .goal-top h4{ font-family:'Cormorant Garamond',serif; font-weight:600; font-size:19px; color:var(--ivory); }
+  .goal-top .pct{ font-family:'Space Mono',monospace; font-size:13px; color:var(--gold-bright); }
+  .goal-meta{ font-family:'Space Mono',monospace; font-size:10px; color:var(--ivory-dim); margin-top:8px; text-transform:uppercase; letter-spacing:.06em; }
+
+  /* productivity */
+  .task-row{ display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--hairline); }
+  .task-row:last-child{ border-bottom:none; }
+  .check{ width:17px; height:17px; border-radius:5px; border:1.5px solid var(--gold-dim); flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; }
+  .check.done{ background:var(--gold); border-color:var(--gold); }
+  .check.done::after{ content:'✓'; font-size:11px; color:#000; font-weight:bold; }
+  .task-row .txt{ flex:1; font-size:16px; }
+  .task-row.line-done .txt{ color:var(--ivory-dim); text-decoration:line-through; }
+  .task-row .prio{ font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.08em; padding:2px 8px; border-radius:10px; text-transform:uppercase; }
+  .prio.high{ color:#c98c7f; border:1px solid #4a2b26; }
+  .prio.med{ color:var(--gold); border:1px solid var(--gold-dim); }
+  .prio.low{ color:var(--ivory-dim); border:1px solid var(--hairline); }
+
+  /* circle / social */
+  .post-card{ padding:18px; border:1px solid var(--hairline); border-radius:12px; margin-bottom:16px; }
+  .post-head{ display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .post-head .pav{ width:34px; height:34px; border-radius:50%; background:linear-gradient(145deg,#2a2416,#0d0b07); border:1px solid var(--gold-dim); display:flex; align-items:center; justify-content:center; font-family:'Cinzel',serif; font-size:11px; color:var(--gold-bright); }
+  .post-head .pname{ font-size:15px; color:var(--ivory); font-weight:600; }
+  .post-head .ptime{ font-family:'Space Mono',monospace; font-size:10px; color:var(--ivory-dim); }
+  .post-img{ width:100%; height:180px; border-radius:8px; background:linear-gradient(145deg,#221d12,#0c0a06); border:1px solid var(--hairline); margin:8px 0 12px; display:flex; align-items:center; justify-content:center; }
+  .post-img svg{ width:34px; height:34px; stroke:var(--gold-dim); fill:none; stroke-width:1.2; }
+  .post-actions{ display:flex; gap:20px; margin-top:10px; }
+  .post-actions span{ font-family:'Space Mono',monospace; font-size:11px; color:var(--ivory-dim); display:flex; align-items:center; gap:5px; cursor:pointer; }
+  .post-actions span:hover{ color:var(--gold-bright); }
+
+  /* vault / chat */
+  .vault-layout{ display:grid; grid-template-columns:280px 1fr; gap:0; height:calc(100vh - 210px); border:1px solid var(--hairline); border-radius:14px; overflow:hidden; }
+  .vault-list{ background:var(--panel); border-right:1px solid var(--hairline); overflow-y:auto; }
+  .vlist-item{ padding:14px 18px; display:flex; gap:12px; align-items:center; cursor:pointer; border-bottom:1px solid var(--hairline); }
+  .vlist-item:hover, .vlist-item.on{ background:rgba(201,168,76,0.05); }
+  .vlist-item .vav{ width:36px; height:36px; border-radius:50%; background:linear-gradient(145deg,#2a2416,#0d0b07); border:1px solid var(--gold-dim); flex-shrink:0; }
+  .vlist-item .vname{ font-size:15px; color:var(--ivory); }
+  .vlist-item .vlast{ font-family:'Space Mono',monospace; font-size:10px; color:var(--ivory-dim); }
+  .vault-chat{ display:flex; flex-direction:column; }
+  .vault-chat-head{ padding:16px 22px; border-bottom:1px solid var(--hairline); display:flex; justify-content:space-between; align-items:center; }
+  .vault-chat-head h4{ font-size:17px; color:var(--ivory); }
+  .lock-badge{ display:flex; align-items:center; gap:6px; font-family:'Space Mono',monospace; font-size:9.5px; letter-spacing:.08em; color:var(--gold-bright); text-transform:uppercase; }
+  .vault-msgs{ flex:1; padding:24px; overflow-y:auto; display:flex; flex-direction:column; gap:14px; }
+  .msg{ max-width:60%; padding:11px 15px; border-radius:14px; font-size:15.5px; }
+  .msg.in{ background:var(--panel-2); border:1px solid var(--hairline); align-self:flex-start; border-bottom-left-radius:3px; }
+  .msg.out{ background:linear-gradient(145deg, #3a3018, #1c1608); border:1px solid var(--gold-dim); align-self:flex-end; border-bottom-right-radius:3px; }
+  .msg .mt{ font-family:'Space Mono',monospace; font-size:9px; color:var(--ivory-dim); margin-top:5px; display:block; }
+  .vault-input{ padding:16px 22px; border-top:1px solid var(--hairline); display:flex; gap:12px; align-items:center; }
+  .vault-input input{ flex:1; background:var(--panel-2); border:1px solid var(--hairline); border-radius:22px; padding:11px 18px; color:var(--ivory); font-family:'Cormorant Garamond',serif; font-size:15px; }
+  .vault-input input:focus{ outline:none; border-color:var(--gold-dim); }
+  .send-btn{ width:38px; height:38px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
+  .send-btn svg{ width:15px; height:15px; stroke:#000; fill:none; stroke-width:2; }
+
+  .footnote{ margin-top:30px; padding-top:18px; border-top:1px solid var(--hairline); font-family:'Space Mono',monospace; font-size:10.5px; color:var(--ivory-dim); line-height:1.7; }
+  .footnote .gk{ color:var(--gold-dim); }
+
+  /* ---------- feed states ---------- */
+  a.news-item{ text-decoration:none; color:inherit; }
+  .feed-empty{ font-family:'Space Mono',monospace; font-size:11.5px; color:var(--ivory-dim); padding:22px 4px; text-align:center; letter-spacing:.04em; }
+  .skel-block{ background:linear-gradient(90deg, #1c1811, #241f14, #1c1811); background-size:200% 100%; animation:shimmer 1.4s infinite; }
+  .skel-line{ height:12px; border-radius:4px; background:linear-gradient(90deg, #1c1811, #241f14, #1c1811); background-size:200% 100%; animation:shimmer 1.4s infinite; }
+  @keyframes shimmer{ 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
+  .feed-status{
+    font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.08em; color:var(--ivory-dim);
+    display:flex; align-items:center; gap:8px; margin-bottom:16px;
+  }
+  .feed-status .fdot{ width:6px; height:6px; border-radius:50%; background:var(--gold-dim); flex-shrink:0; }
+  .feed-status.live .fdot{ background:#5c8f6b; box-shadow:0 0 6px #5c8f6b; }
+  .feed-status.error .fdot{ background:#b06a5f; }
+  .chip[data-nomatch="1"]{ opacity:.4; }
+
+  /* ---------- auth gate ---------- */
+  #auth-gate{
+    position:fixed; inset:0; z-index:1000;
+    background:rgba(0,0,0,0.92); backdrop-filter:blur(6px);
+    display:none; align-items:center; justify-content:center;
+  }
+  #auth-gate.show{ display:flex; }
+
+  /* ---------- loading screen ---------- */
+  #loading-screen{
+    position:fixed; inset:0; z-index:2000;
+    background:#000;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    transition:opacity .5s ease;
+  }
+  #loading-screen.hide{ opacity:0; pointer-events:none; }
+  .loading-seal{
+    width:96px; height:96px; border-radius:50%; overflow:hidden;
+    border:2px solid var(--gold-dim); margin-bottom:22px;
+    box-shadow:0 0 40px rgba(201,168,76,0.25);
+    animation:loadingPulse 2.2s ease-in-out infinite;
+  }
+  .loading-seal img{ width:100%; height:100%; object-fit:cover; }
+  @keyframes loadingPulse{ 0%,100%{ box-shadow:0 0 24px rgba(201,168,76,0.18); } 50%{ box-shadow:0 0 48px rgba(201,168,76,0.4); } }
+  .loading-brand{ font-size:30px; letter-spacing:.14em; color:var(--ivory); margin-bottom:10px; }
+  .loading-brand span{ color:var(--gold); }
+  .loading-msg{ font-family:'Space Mono',monospace; font-size:12px; letter-spacing:.1em; color:var(--ivory-dim); text-transform:uppercase; }
+  #passphrase-gate{
+    position:fixed; inset:0; z-index:1001;
+    background:rgba(0,0,0,0.92); backdrop-filter:blur(6px);
+    display:none; align-items:center; justify-content:center;
+  }
+  #passphrase-gate.show{ display:flex; }
+  .auth-box{
+    width:360px; max-width:90vw; padding:36px 32px;
+    background:linear-gradient(180deg, var(--panel), var(--panel-2));
+    border:1px solid var(--hairline); border-radius:16px; text-align:center;
+  }
+  .auth-box .seal-lg{ width:56px; height:56px; margin:0 auto 18px; }
+  .auth-box h2{ font-family:'Bebas Neue',sans-serif; font-size:30px; letter-spacing:.04em; color:var(--ivory); margin-bottom:6px; }
+  .auth-box .sub{ font-size:15px; color:var(--ivory-dim); font-style:italic; margin-bottom:22px; }
+  .auth-box input{
+    width:100%; background:var(--panel-2); border:1px solid var(--hairline); border-radius:10px;
+    padding:12px 14px; color:var(--ivory); font-family:'Cormorant Garamond',serif; font-size:16px; margin-bottom:12px;
+  }
+  .auth-box input:focus{ outline:none; border-color:var(--gold-dim); }
+  .auth-box button{
+    width:100%; padding:12px; border-radius:10px; border:none; cursor:pointer;
+    background:var(--gold); color:#000; font-family:'Space Mono',monospace; font-size:12px;
+    letter-spacing:.1em; text-transform:uppercase; transition:background .2s;
+  }
+  .auth-box button:hover{ background:var(--gold-bright); }
+  .auth-box .msg{ margin-top:16px; font-family:'Space Mono',monospace; font-size:11px; color:var(--ivory-dim); line-height:1.6; min-height:14px; }
+  .add-row{ display:flex; gap:10px; margin-top:14px; }
+  .add-row input{
+    flex:1; background:var(--panel-2); border:1px solid var(--hairline); border-radius:10px;
+    padding:10px 14px; color:var(--ivory); font-family:'Cormorant Garamond',serif; font-size:15px;
+  }
+  .add-row input:focus{ outline:none; border-color:var(--gold-dim); }
+  .add-row button{
+    padding:0 18px; border-radius:10px; border:1px solid var(--gold-dim); background:transparent;
+    color:var(--gold-bright); font-family:'Space Mono',monospace; font-size:11px; cursor:pointer; text-transform:uppercase;
+  }
+  .add-row button:hover{ background:rgba(201,168,76,0.08); }
+  .sync-status{ font-family:'Space Mono',monospace; font-size:10px; color:var(--ivory-dim); margin-top:10px; }
+
+  /* ---------- markets ---------- */
+  .market-card{ grid-column:span 4; padding:18px; border:1px solid var(--hairline); border-radius:12px; cursor:pointer; transition:border-color .2s; background:rgba(255,255,255,0.01); }
+  .market-card:hover{ border-color:var(--gold-dim); }
+  .market-card .m-name{ font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.1em; color:var(--ivory-dim); text-transform:uppercase; }
+  .market-card .m-price{ font-family:'Bebas Neue',sans-serif; font-size:28px; color:var(--ivory); margin:4px 0; }
+  .market-card .m-change{ font-family:'Space Mono',monospace; font-size:12px; }
+  .market-card .m-change.up{ color:#7ba885; }
+  .market-card .m-change.down{ color:#b06a5f; }
+  .holding-row{ display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--hairline); cursor:pointer; }
+  .holding-row:last-child{ border-bottom:none; }
+  .holding-row:hover{ color:var(--gold-bright); }
+  .holding-row .h-name{ font-size:15px; }
+  .holding-row .h-val{ font-family:'Space Mono',monospace; font-size:12px; color:var(--ivory-dim); }
+  code{ background:var(--panel-2); padding:1px 6px; border-radius:4px; font-family:'Space Mono',monospace; font-size:11px; color:var(--gold-bright); }
+
+  /* ---------- the realm (kingdoms) ---------- */
+  .kingdom-card{
+    grid-column:span 3; padding:22px 18px; border-radius:14px; cursor:pointer;
+    background:linear-gradient(165deg, rgba(255,255,255,0.02), transparent);
+    border:1px solid var(--hairline); position:relative; overflow:hidden;
+    transition:transform .25s ease, border-color .25s ease;
+  }
+  .kingdom-card::before{
+    content:''; position:absolute; inset:0; opacity:0; transition:opacity .3s;
+    background:radial-gradient(circle at 30% -10%, var(--k-accent, var(--gold)) 0%, transparent 60%);
+  }
+  .kingdom-card:hover{ transform:translateY(-3px); border-color:var(--k-accent, var(--gold-dim)); }
+  .kingdom-card:hover::before{ opacity:0.16; }
+  .kingdom-card.active{ border-color:var(--k-accent, var(--gold)); }
+  .kingdom-card.active::before{ opacity:0.22; }
+  .kingdom-seal{
+    width:38px; height:38px; border-radius:50%; margin-bottom:14px;
+    display:flex; align-items:center; justify-content:center;
+    border:1.5px solid var(--k-accent, var(--gold-dim)); position:relative; z-index:1;
+    font-family:'Cinzel',serif; font-size:14px; color:var(--k-accent-bright, var(--gold-bright));
+  }
+  .kingdom-card h4{ font-family:'Cinzel',serif; font-size:16px; letter-spacing:.03em; color:var(--ivory); position:relative; z-index:1; margin-bottom:5px; }
+  .kingdom-card .k-tagline{ font-size:13px; color:var(--ivory-dim); font-style:italic; position:relative; z-index:1; line-height:1.4; margin-bottom:12px; }
+  .kingdom-card .k-count{ font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.08em; color:var(--k-accent-bright, var(--gold-bright)); text-transform:uppercase; position:relative; z-index:1; }
+  .kingdom-filter-row{ display:flex; flex-wrap:wrap; gap:8px; margin:26px 0 18px; }
+  .kingdom-filter-row .chip.on{ border-color:var(--k-accent, var(--gold)); color:var(--k-accent-bright, var(--gold-bright)); background:rgba(255,255,255,0.04); }
+  @media (max-width: 900px){ .kingdom-card{ grid-column:span 12; } }
+  .realm-stat{ grid-column:span 3; padding:16px; }
+  .realm-stat .rk{ font-family:'Space Mono',monospace; font-size:9.5px; letter-spacing:.1em; color:var(--ivory-dim); text-transform:uppercase; }
+  .realm-stat .rv{ font-family:'Bebas Neue',sans-serif; font-size:30px; color:var(--ivory); margin-top:4px; }
+  @media (max-width: 900px){ .realm-stat{ grid-column:span 6; } }
+
+  /* ---------- alliances ---------- */
+  .ally-row{ display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border:1px solid var(--hairline); border-radius:12px; margin-bottom:10px; }
+  .ally-row .a-name{ font-size:16px; color:var(--ivory); }
+  .ally-row .a-email{ font-family:'Space Mono',monospace; font-size:11px; color:var(--ivory-dim); }
+  .ally-btn{ padding:7px 14px; border-radius:8px; border:1px solid var(--gold-dim); background:transparent; color:var(--gold-bright); font-family:'Space Mono',monospace; font-size:10.5px; letter-spacing:.06em; cursor:pointer; text-transform:uppercase; margin-left:8px; }
+  .ally-btn.decline{ border-color:#4a2b26; color:#c98c7f; }
+
+  /* ---------- calling ---------- */
+  #call-overlay{
+    position:fixed; inset:0; z-index:3000; background:rgba(0,0,0,0.96);
+    display:none; align-items:center; justify-content:center; flex-direction:column;
+  }
+  #call-overlay.show{ display:flex; }
+  .call-remote-video{ width:100%; height:100%; object-fit:cover; position:absolute; inset:0; background:#0a0a0a; }
+  .call-local-video{ position:absolute; bottom:110px; right:20px; width:110px; height:150px; border-radius:12px; object-fit:cover; border:1px solid var(--gold-dim); z-index:2; background:#0a0a0a; }
+  .call-info{ position:relative; z-index:1; text-align:center; color:var(--ivory); }
+  .call-info .c-seal{ width:80px; height:80px; border-radius:50%; border:2px solid var(--gold-dim); margin:0 auto 18px; display:flex; align-items:center; justify-content:center; font-family:'Cinzel',serif; font-size:26px; color:var(--gold-bright); animation:loadingPulse 2s infinite; }
+  .call-info h3{ font-family:'Bebas Neue',sans-serif; font-size:28px; letter-spacing:.03em; }
+  .call-info .c-status{ font-family:'Space Mono',monospace; font-size:12px; color:var(--ivory-dim); text-transform:uppercase; letter-spacing:.08em; margin-top:6px; }
+  .call-controls{ position:absolute; bottom:30px; left:0; right:0; display:flex; justify-content:center; gap:18px; z-index:3; }
+  .call-btn{ width:56px; height:56px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; border:1px solid var(--hairline); background:rgba(255,255,255,0.06); color:var(--ivory); }
+  .call-btn.active-off{ background:rgba(201,168,76,0.2); border-color:var(--gold); color:var(--gold-bright); }
+  .call-btn.hangup{ background:#8c3b34; border-color:#8c3b34; color:#fff; }
+  .call-incoming-actions{ position:relative; z-index:1; display:flex; gap:20px; margin-top:26px; }
+
+  /* ---------- king's wing ---------- */
+  .exhibition-card{ grid-column:span 6; padding:24px; border:1px solid var(--hairline); border-radius:14px; background:linear-gradient(165deg, rgba(201,168,76,0.04), transparent); }
+  .exhibition-card h4{ font-family:'Cinzel',serif; font-size:19px; color:var(--ivory); margin-bottom:8px; }
+  .exhibition-card .ex-stats{ display:flex; gap:22px; margin:16px 0; }
+  .exhibition-card .ex-stat .k{ font-family:'Space Mono',monospace; font-size:9.5px; color:var(--ivory-dim); text-transform:uppercase; letter-spacing:.08em; }
+  .exhibition-card .ex-stat .v{ font-family:'Bebas Neue',sans-serif; font-size:24px; color:var(--gold-bright); }
+  .exhibition-card a{ display:inline-block; margin-top:10px; padding:9px 18px; border-radius:9px; border:1px solid var(--gold-dim); color:var(--gold-bright); font-family:'Space Mono',monospace; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; text-decoration:none; }
+  @media (max-width: 900px){ .exhibition-card{ grid-column:span 12; } }
+
+  /* ---------- budgeting ---------- */
+  .envelope-row{ margin-bottom:14px; }
+  .envelope-row .e-top{ display:flex; justify-content:space-between; font-size:14px; margin-bottom:6px; }
+  .envelope-row .e-top .e-name{ color:var(--ivory); }
+  .envelope-row .e-top .e-amt{ font-family:'Space Mono',monospace; font-size:12px; color:var(--ivory-dim); }
+  .envelope-row .e-top .e-amt.over{ color:#c98c7f; }
+  .envelope-row .e-actions{ display:flex; gap:8px; margin-top:6px; }
+  .bill-row{ display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--hairline); }
+  .bill-row:last-child{ border-bottom:none; }
+  .bill-row .b-name{ font-size:15px; color:var(--ivory); }
+  .bill-row .b-due{ font-family:'Space Mono',monospace; font-size:10px; color:var(--ivory-dim); }
+  .bill-row .b-due.soon{ color:var(--gold-bright); }
+  .savings-card{ grid-column:span 4; padding:18px; border:1px solid var(--hairline); border-radius:12px; }
+  .savings-card h4{ font-family:'Cormorant Garamond',serif; font-weight:600; font-size:17px; color:var(--ivory); margin-bottom:8px; }
+  @media (max-width: 900px){ .savings-card{ grid-column:span 12; } }
+  #settings-new-pass, #settings-new-pass-confirm, #settings-display-name{
+    width:100%; background:var(--panel-2); border:1px solid var(--hairline); border-radius:10px;
+    padding:11px 14px; color:var(--ivory); font-family:'Cormorant Garamond',serif; font-size:15px;
+  }
+  #settings-new-pass:focus, #settings-new-pass-confirm:focus, #settings-display-name:focus{ outline:none; border-color:var(--gold-dim); }
+
+  @media (max-width: 900px){
+    .app{ grid-template-columns:1fr; }
+    .rail{ display:none; }
+    .view{ padding:20px 16px 90px; }
+    .grid{ display:block; }
+    .c4,.c5,.c6,.c7,.c8,.c12{ margin-bottom:16px; }
+    .vault-layout{ grid-template-columns:1fr; height:auto; }
+    .vault-list{ max-height:200px; }
+
+    .mobile-nav{
+      display:flex; position:fixed; bottom:0; left:0; right:0; z-index:100;
+      background:#000; border-top:1px solid var(--hairline);
+      overflow-x:auto; -webkit-overflow-scrolling:touch;
+      padding:8px 6px calc(8px + env(safe-area-inset-bottom, 0px));
+      gap:4px;
+    }
+    .mobile-nav::-webkit-scrollbar{ display:none; }
+    .mobile-nav .rail-btn{
+      flex:0 0 auto; width:auto; height:auto; flex-direction:column; gap:3px;
+      padding:8px 13px; border-radius:10px;
+    }
+    .mobile-nav .rail-btn svg{ width:18px; height:18px; }
+    .mobile-nav .rail-btn .mnav-label{
+      font-family:'Space Mono',monospace; font-size:8.5px; letter-spacing:.04em;
+      text-transform:uppercase; color:inherit;
+    }
+    .mobile-nav .rail-btn .dot, .mobile-nav .rail-btn .rail-tip{ display:none; }
+    .topbar{ padding:16px 18px; }
+    .brandline .wordmark{ font-size:20px; }
+  }
+  .mobile-nav{ display:none; }
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="loading-seal">
+    <img src="icon-512.png" alt="">
+  </div>
+  <div class="loading-brand crest">THE <span>THRONE</span></div>
+  <div class="loading-msg" id="loading-msg">Entering the court...</div>
+</div>
+
+<div id="auth-gate">
+  <div class="auth-box">
+    <svg class="seal-lg" viewBox="0 0 48 48">
+      <circle cx="24" cy="24" r="21" fill="none" stroke="#c9a84c" stroke-width="0.8" stroke-dasharray="2 4"/>
+      <circle cx="24" cy="24" r="10.5" fill="#0a0a0a" stroke="#c9a84c" stroke-width="1"/>
+      <text x="24" y="28.5" text-anchor="middle" font-family="Cinzel, serif" font-size="10" fill="#e8c766">T</text>
+    </svg>
+    <h2 class="crest">THE THRONE</h2>
+    <div class="sub">Enter your seat of power.</div>
+    <input type="email" id="auth-email" placeholder="your@email.com" autocomplete="email">
+    <button id="auth-send-link">Send magic link</button>
+    <div class="msg" id="auth-gate-msg"></div>
+  </div>
+</div>
+
+<div id="passphrase-gate">
+  <div class="auth-box">
+    <svg class="seal-lg" viewBox="0 0 48 48">
+      <circle cx="24" cy="24" r="21" fill="none" stroke="#c9a84c" stroke-width="0.8" stroke-dasharray="2 4"/>
+      <circle cx="24" cy="24" r="10.5" fill="#0a0a0a" stroke="#c9a84c" stroke-width="1"/>
+      <text x="24" y="28.5" text-anchor="middle" font-family="Cinzel, serif" font-size="10" fill="#e8c766">V</text>
+    </svg>
+    <h2 class="crest" id="pg-title">Vault Key</h2>
+    <div class="sub" id="pg-sub">Set a passphrase to protect your Vault identity.</div>
+    <input type="password" id="pg-passphrase" placeholder="Passphrase" autocomplete="off">
+    <input type="password" id="pg-passphrase-confirm" placeholder="Confirm passphrase" autocomplete="off">
+    <button id="pg-submit">Create Vault key</button>
+    <div class="msg" id="pg-msg"></div>
+  </div>
+</div>
+
+<div class="app">
+  <!-- ============ SIDE RAIL ============ -->
+  <nav class="rail">
+    <div class="seal" title="The Throne">
+      <svg viewBox="0 0 48 48">
+        <circle class="ring" cx="24" cy="24" r="21" fill="none" stroke="#c9a84c" stroke-width="0.8" stroke-dasharray="2 4"/>
+        <circle class="ring2" cx="24" cy="24" r="16" fill="none" stroke="#8a7136" stroke-width="0.7" stroke-dasharray="1 3"/>
+        <circle cx="24" cy="24" r="10.5" fill="#0a0a0a" stroke="#c9a84c" stroke-width="1"/>
+        <text x="24" y="28.5" text-anchor="middle" font-family="Cinzel, serif" font-size="10" fill="#e8c766">T</text>
+      </svg>
+    </div>
+    <div class="rail-nav">
+      <div class="rail-btn active" data-view="dashboard"><span class="dot"></span>
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        <span class="rail-tip">Dashboard</span>
+      </div>
+      <div class="rail-btn" data-view="news"><span class="dot"></span>
+        <svg viewBox="0 0 24 24"><path d="M4 5h16v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
+        <span class="rail-tip">News</span>
+      </div>
+      <div class="rail-btn" data-view="fitness"><span class="dot"></span>
+        <svg viewBox="0 0 24 24"><path d="M6 7v10M18 7v10M2 10v4M22 10v4M6 12h12"/></svg>
+        <span class="rail-tip">Fitness</span>
+      </div>
+      <div class="rail-btn" data-view="productivity"><span class="dot"></span>
+        <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span class="rail-tip">Productivity</span>
+      </div>
+      <div class="rail-btn" data-view="goals"><span class="dot"></span>
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>
+        <span class="rail-tip">Goals</span>
+      </div>
+      <div class="rail-btn" data-view="markets"><span class="dot"></span>
+        <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>
+        <span class="rail-tip">Markets</span>
+      </div>
+      <div class="rail-btn" data-view="circle"><span class="dot"></span>
+        <svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3.2"/><circle cx="17" cy="9" r="2.6"/><path d="M2.5 20c0-3.6 2.9-6.2 5.5-6.2s5.5 2.6 5.5 6.2M13.5 20c0-2.6 1.9-4.6 4.5-4.6s4.5 2 4.5 4.6"/></svg>
+        <span class="rail-tip">The Circle</span>
+      </div>
+      <div class="rail-btn" data-view="realm"><span class="dot"></span>
+        <svg viewBox="0 0 24 24"><path d="M12 2l2.5 5 5.5.7-4 4 1 5.5L12 14.5 7 17.2l1-5.5-4-4L9.5 7z"/></svg>
+        <span class="rail-tip">The Realm</span>
+      </div>
+      <div class="rail-btn" data-view="alliances"><span class="dot"></span>
+        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span class="rail-tip">Alliances</span>
+      </div>
+      <div class="rail-btn" data-view="kings"><span class="dot"></span>
+        <svg viewBox="0 0 24 24"><path d="M3 20h18M4 20V10l4 3 4-6 4 6 4-3v10"/></svg>
+        <span class="rail-tip">King's Wing</span>
+      </div>
+      <div class="rail-btn" data-view="vault"><span class="dot"></span>
+        <svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15" r="1.5"/></svg>
+        <span class="rail-tip">The Vault</span>
+      </div>
+    </div>
+    <div class="rail-foot">
+      <div class="rail-btn" data-view="settings"><span class="dot"></span>
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+        <span class="rail-tip">Settings</span>
+      </div>
+      <div class="avatar">NL</div>
+    </div>
+  </nav>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+    <div class="topbar">
+      <div class="brandline">
+        <div class="wordmark crest">THE <span>THRONE</span></div>
+        <div class="tag">house of kong</div>
+      </div>
+      <div class="top-right">
+        <div class="vault-pill"><span class="pulse"></span> VAULT SECURE</div>
+        <div class="clockbox">
+          <div class="time mono" id="clock">06:41 PM</div>
+          <div class="date mono">TUE · JUL 07</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DASHBOARD ===== -->
+    <section class="view active" id="view-dashboard">
+      <div class="eyebrow">The Court · Overview</div>
+      <h1 class="page-title">Good evening, Sovereign.</h1>
+      <div class="page-sub">Everything you rule over, in one seat of power.</div>
+
+      <div class="stat-row">
+        <div class="stat panel">
+          <div class="k">Steps Today</div>
+          <div class="v">8,240 <small>/ 10k</small></div>
+          <div class="delta">▲ 12% vs. avg</div>
+        </div>
+        <div class="stat panel">
+          <div class="k">Tasks Cleared</div>
+          <div class="v">6 <small>/ 9</small></div>
+          <div class="delta">On pace</div>
+        </div>
+        <div class="stat panel">
+          <div class="k">Goals in Motion</div>
+          <div class="v">4</div>
+          <div class="delta">1 nearing deadline</div>
+        </div>
+        <div class="stat panel">
+          <div class="k">Vault Messages</div>
+          <div class="v">3</div>
+          <div class="delta down">2 unread</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="c7 panel">
+          <div class="panel-head"><h3>Briefing — Curated For You</h3><span class="count mono" id="briefing-count">— topics</span></div>
+          <div id="dashboard-feed-status" class="feed-status"><span class="fdot"></span><span id="dashboard-feed-status-text">Connecting to feeds…</span></div>
+          <div id="dashboard-briefing"></div>
+        </div>
+
+        <div class="c5 panel">
+          <div class="panel-head"><h3>Weekly Momentum</h3></div>
+          <div id="momentum-bars">
+            <div class="bar-row"><div class="lbl">TRAINING</div><div class="bar-track"><div class="bar-fill" style="width:0%"></div></div><div class="val">—</div></div>
+            <div class="bar-row"><div class="lbl">DEEP WORK</div><div class="bar-track"><div class="bar-fill" style="width:0%"></div></div><div class="val">—</div></div>
+            <div class="bar-row"><div class="lbl">TASKS</div><div class="bar-track"><div class="bar-fill" style="width:0%"></div></div><div class="val">—</div></div>
+            <div class="bar-row"><div class="lbl">SLEEP</div><div class="bar-track"><div class="bar-fill" style="width:0%"></div></div><div class="val">—</div></div>
+          </div>
+          <div class="divider"></div>
+          <div class="panel-head"><h3>Nearest Deadline</h3></div>
+          <div id="nearest-deadline">
+            <div class="feed-empty" style="padding:8px 0;">No goals with deadlines yet.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== NEWS ===== -->
+    <section class="view" id="view-news">
+      <div class="eyebrow">Intelligence</div>
+      <h1 class="page-title">Your Briefing</h1>
+      <div class="page-sub">Chosen topics only. No noise, no algorithmic drift.</div>
+
+      <div class="chip-row" id="topic-chip-row"></div>
+      <div class="add-row" style="max-width:420px; margin-bottom:22px;">
+        <input type="text" id="custom-topic-input" placeholder="Type any topic — soccer, K-pop, AI...">
+        <button id="custom-topic-btn">Add</button>
+      </div>
+
+      <div id="news-feed-status" class="feed-status"><span class="fdot"></span><span id="news-feed-status-text">Connecting to feeds…</span></div>
+
+      <div class="panel" id="news-full-list"></div>
+    </section>
+
+    <!-- ===== FITNESS ===== -->
+    <section class="view" id="view-fitness">
+      <div class="eyebrow">The Forge</div>
+      <h1 class="page-title">Training Log</h1>
+      <div class="page-sub">Strength, recovery, and the numbers that matter.</div>
+
+      <div class="grid">
+        <div class="c4 panel">
+          <div class="panel-head"><h3>Today's Ring</h3></div>
+          <div class="ring-wrap">
+            <svg width="140" height="140" viewBox="0 0 140 140">
+              <circle cx="70" cy="70" r="60" fill="none" stroke="#1c1811" stroke-width="10"/>
+              <circle id="ring-outer" cx="70" cy="70" r="60" fill="none" stroke="#c9a84c" stroke-width="10" stroke-linecap="round"
+                stroke-dasharray="377" stroke-dashoffset="377" transform="rotate(-90 70 70)"/>
+              <circle cx="70" cy="70" r="44" fill="none" stroke="#241f14" stroke-width="7"/>
+              <circle id="ring-inner" cx="70" cy="70" r="44" fill="none" stroke="#e8c766" stroke-width="7" stroke-linecap="round"
+                stroke-dasharray="276" stroke-dashoffset="276" transform="rotate(-90 70 70)"/>
+            </svg>
+          </div>
+          <div class="ring-label"><div class="big" id="ring-pct">—%</div><div class="small">Daily Load Target</div></div>
+          <div class="add-row">
+            <input type="number" id="log-load-input" placeholder="Log today's load %" min="0" max="100">
+            <button id="log-load-btn">Log</button>
+          </div>
+        </div>
+
+        <div class="c8 panel">
+          <div class="panel-head"><h3>This Week — Splits</h3><span class="count mono" id="splits-week-label">—</span></div>
+          <div id="splits-list"></div>
+        </div>
+
+        <div class="c12 panel">
+          <div class="panel-head"><h3>Quick Log</h3><span class="count mono">FITNESS_LOGS</span></div>
+          <div class="add-row" style="margin-top:0;">
+            <select id="log-metric-select" style="flex:1; background:var(--panel-2); border:1px solid var(--hairline); border-radius:10px; padding:10px 14px; color:var(--ivory); font-family:'Cormorant Garamond',serif; font-size:15px;">
+              <option value="squat_kg">Squat (kg)</option>
+              <option value="bench_kg">Bench (kg)</option>
+              <option value="deadlift_kg">Deadlift (kg)</option>
+              <option value="sleep_hours">Sleep (hours)</option>
+              <option value="resting_hr">Resting HR (bpm)</option>
+              <option value="hydration_l">Hydration (L)</option>
+              <option value="steps">Steps</option>
+            </select>
+            <input type="number" id="log-value-input" placeholder="Value" style="max-width:120px;" step="0.1">
+            <button id="log-value-btn">Log</button>
+          </div>
+          <div class="sync-status" id="fitness-sync-status"></div>
+          <div class="divider"></div>
+          <div class="panel-head"><h3>Progressive Overload</h3></div>
+          <div id="lift-bars"></div>
+        </div>
+
+        <div class="c6 panel">
+          <div class="panel-head"><h3>Vitals</h3></div>
+          <div id="vitals-bars"></div>
+        </div>
+        <div class="c6 panel">
+          <div class="panel-head"><h3>Recent Log</h3></div>
+          <div id="fitness-log-list"></div>
+        </div>
+
+        <div class="c7 panel">
+          <div class="panel-head"><h3>Workout Logger</h3><span class="count mono">SETS · REPS · WEIGHT</span></div>
+          <div class="goal-meta" style="margin-bottom:14px;">Real per-exercise tracking, Boostcamp/Strong-style — not just a daily number.</div>
+          <div class="add-row" style="margin-top:0;">
+            <input type="text" id="ex-name-input" placeholder="Exercise (e.g. 'Bench Press')">
+          </div>
+          <div class="add-row">
+            <input type="number" id="ex-weight-input" placeholder="Weight" step="0.5" style="max-width:100px;">
+            <input type="number" id="ex-reps-input" placeholder="Reps" style="max-width:90px;">
+            <input type="number" id="ex-sets-input" placeholder="Sets" value="1" style="max-width:80px;">
+          </div>
+          <div class="add-row">
+            <input type="range" id="ex-rpe-input" min="1" max="10" step="0.5" value="8" style="flex:1;">
+            <span id="ex-rpe-label" style="font-family:'Space Mono',monospace; font-size:12px; color:var(--gold-bright); min-width:70px;">RPE 8</span>
+            <button id="ex-log-btn">Log Set</button>
+          </div>
+          <div id="ex-log-list" style="margin-top:14px;"></div>
+        </div>
+
+        <div class="c5 panel">
+          <div class="panel-head"><h3>Personal Records</h3></div>
+          <div id="pr-list"></div>
+          <div class="divider"></div>
+          <div class="panel-head"><h3>Plate Calculator</h3></div>
+          <div class="add-row" style="margin-top:0;">
+            <input type="number" id="plate-target-input" placeholder="Target weight" step="2.5">
+            <input type="number" id="plate-bar-input" placeholder="Bar weight" value="20" step="2.5" style="max-width:110px;">
+          </div>
+          <div id="plate-result" class="goal-meta" style="margin-top:10px;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== PRODUCTIVITY ===== -->
+    <section class="view" id="view-productivity">
+      <div class="eyebrow">The Ledger</div>
+      <h1 class="page-title">Today's Work</h1>
+      <div class="page-sub" id="productivity-subhead">Loading your queue...</div>
+
+      <div class="grid">
+        <div class="c7 panel">
+          <div class="panel-head"><h3>Task Queue</h3><span class="count mono" id="task-count">— total</span></div>
+          <div id="task-list"></div>
+          <div class="add-row">
+            <input type="text" id="new-task-input" placeholder="Add a task, press enter...">
+            <button id="new-task-btn">Add</button>
+          </div>
+          <div class="add-row">
+            <input type="date" id="new-task-due" style="max-width:160px;">
+            <select id="new-task-recurrence" style="background:var(--panel-2); border:1px solid var(--hairline); border-radius:10px; padding:10px 14px; color:var(--ivory); font-family:'Cormorant Garamond',serif; font-size:14px;">
+              <option value="none">Doesn't repeat</option>
+              <option value="daily">Repeats daily</option>
+              <option value="weekdays">Repeats weekdays</option>
+              <option value="weekly">Repeats weekly</option>
+            </select>
+            <select id="new-task-priority" style="background:var(--panel-2); border:1px solid var(--hairline); border-radius:10px; padding:10px 14px; color:var(--ivory); font-family:'Cormorant Garamond',serif; font-size:14px;">
+              <option value="low">Low</option>
+              <option value="med" selected>Med</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+          <div class="sync-status" id="task-sync-status"></div>
+          <div class="divider"></div>
+          <button id="ritual-template-btn" style="padding:9px 18px; border-radius:9px; border:1px solid var(--gold-dim); background:transparent; color:var(--gold-bright); font-family:'Space Mono',monospace; font-size:10.5px; letter-spacing:.06em; cursor:pointer; text-transform:uppercase;">+ Add Daily Ritual Template</button>
+        </div>
+
+        <div class="c5 panel" style="text-align:center;">
+          <div class="panel-head" style="text-align:left;"><h3>Focus Timer</h3><span class="count mono" id="focus-task-label">No task selected</span></div>
+          <div style="position:relative; width:160px; height:160px; margin:14px auto;">
+            <svg width="160" height="160" viewBox="0 0 160 160">
+              <circle cx="80" cy="80" r="70" fill="none" stroke="#1c1811" stroke-width="9"/>
+              <circle id="focus-ring" cx="80" cy="80" r="70" fill="none" stroke="#c9a84c" stroke-width="9" stroke-linecap="round"
+                stroke-dasharray="440" stroke-dashoffset="0" transform="rotate(-90 80 80)"/>
+            </svg>
+            <div id="focus-seal" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:'Bebas Neue',sans-serif; font-size:34px; color:var(--ivory);">25:00</div>
+          </div>
+          <select id="focus-duration-select" style="background:var(--panel-2); border:1px solid var(--hairline); border-radius:10px; padding:8px 14px; color:var(--ivory); font-family:'Space Mono',monospace; font-size:12px; margin-bottom:14px;">
+            <option value="25">25 min — Deep Work</option>
+            <option value="15">15 min — Quick Focus</option>
+            <option value="50">50 min — Long Session</option>
+          </select>
+          <div style="display:flex; gap:10px; justify-content:center;">
+            <button id="focus-start-btn" style="padding:10px 22px; border-radius:10px; border:none; background:var(--gold); color:#000; font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.08em; cursor:pointer; text-transform:uppercase;">Start</button>
+            <button id="focus-reset-btn" style="padding:10px 22px; border-radius:10px; border:1px solid var(--hairline); background:transparent; color:var(--ivory-dim); font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.08em; cursor:pointer; text-transform:uppercase;">Reset</button>
+          </div>
+          <div class="goal-meta" style="margin-top:16px;" id="focus-sessions-today">0 sessions logged today</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== GOALS ===== -->
+    <section class="view" id="view-goals">
+      <div class="eyebrow">The Long Game</div>
+      <h1 class="page-title">Active Goals</h1>
+      <div class="page-sub">What you're actually building toward.</div>
+
+      <div id="goal-list"></div>
+      <div class="add-row" style="max-width:520px;">
+        <input type="text" id="new-goal-input" placeholder="Add a goal, press enter...">
+        <button id="new-goal-btn">Add</button>
+      </div>
+    </section>
+
+    <!-- ===== MARKETS ===== -->
+    <section class="view" id="view-markets">
+      <div class="eyebrow">The Treasury</div>
+      <h1 class="page-title">Markets</h1>
+      <div class="page-sub">Crypto is live. Stocks need a free API key — see Settings.</div>
+
+      <div class="chip-row" style="margin-bottom:24px;">
+        <div class="chip on treasury-tab" data-tab="invest">Invest</div>
+        <div class="chip treasury-tab" data-tab="budget">Budget</div>
+      </div>
+
+      <div class="treasury-panel" id="treasury-invest">
+
+      <div class="panel-head" style="margin-bottom:12px;"><h3>Watchlist</h3></div>
+      <div class="grid" id="watchlist-cards" style="margin-bottom:26px;"></div>
+
+      <div class="grid">
+        <div class="c7 panel">
+          <div class="panel-head"><h3>Portfolio Chart</h3><span class="count mono" id="chart-symbol-label">SELECT A HOLDING</span></div>
+          <canvas id="portfolio-chart" height="220"></canvas>
+        </div>
+        <div class="c5 panel">
+          <div class="panel-head"><h3>Your Portfolio</h3><span class="count mono" id="portfolio-total">$—</span></div>
+          <div id="portfolio-list"></div>
+
+          <div class="divider"></div>
+          <select id="holding-type-select" style="width:100%; margin-bottom:10px; background:var(--panel-2); border:1px solid var(--hairline); border-radius:10px; padding:10px 14px; color:var(--ivory); font-family:'Cormorant Garamond',serif; font-size:15px;">
+            <option value="crypto">Crypto (CoinGecko id, e.g. "bitcoin")</option>
+            <option value="stock">Stock (ticker, e.g. "AAPL")</option>
+          </select>
+          <div class="add-row" style="margin-top:0;">
+            <input type="text" id="holding-symbol-input" placeholder="Symbol / id...">
+          </div>
+          <div class="add-row">
+            <input type="text" id="holding-label-input" placeholder="Display name (optional)">
+          </div>
+          <div class="add-row">
+            <input type="number" id="holding-qty-input" placeholder="Quantity" step="0.0001">
+            <button id="holding-add-btn">Add</button>
+          </div>
+          <div class="sync-status" id="portfolio-sync-status"></div>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:22px;">
+        <div class="c5 panel">
+          <div class="panel-head"><h3>Net Worth</h3><span class="count mono" id="networth-total">$—</span></div>
+          <div class="goal-meta" style="margin-bottom:14px;">Everything, not just the market — the way Pearler's dashboard does it.</div>
+          <div id="networth-breakdown"></div>
+          <div class="divider"></div>
+          <select id="asset-category-select" style="width:100%; margin-bottom:10px; background:var(--panel-2); border:1px solid var(--hairline); border-radius:10px; padding:10px 14px; color:var(--ivory); font-family:'Cormorant Garamond',serif; font-size:15px;">
+            <option value="cash">Cash / Savings</option>
+            <option value="property">Property</option>
+            <option value="super">Super / Retirement</option>
+            <option value="other">Other</option>
+          </select>
+          <div class="add-row" style="margin-top:0;">
+            <input type="text" id="asset-label-input" placeholder="Label (e.g. 'Savings account')">
+          </div>
+          <div class="add-row">
+            <input type="number" id="asset-value-input" placeholder="Value ($)" step="0.01">
+            <button id="asset-add-btn">Add</button>
+          </div>
+        </div>
+
+        <div class="c4 panel">
+          <div class="panel-head"><h3>Financial Independence</h3></div>
+          <div class="ring-wrap"><svg width="130" height="130" viewBox="0 0 130 130">
+            <circle cx="65" cy="65" r="55" fill="none" stroke="#1c1811" stroke-width="9"/>
+            <circle id="fi-ring" cx="65" cy="65" r="55" fill="none" stroke="#c9a84c" stroke-width="9" stroke-linecap="round"
+              stroke-dasharray="345" stroke-dashoffset="345" transform="rotate(-90 65 65)"/>
+          </svg></div>
+          <div class="ring-label"><div class="big" id="fi-pct">—%</div><div class="small">To FI Number</div></div>
+          <div class="add-row" style="max-width:100%; margin-top:14px;">
+            <input type="number" id="fi-expenses-input" placeholder="Annual expenses ($)" step="100">
+            <button id="fi-save-btn">Set</button>
+          </div>
+          <div class="goal-meta" id="fi-detail" style="margin-top:10px;"></div>
+        </div>
+
+        <div class="c3 panel">
+          <div class="panel-head"><h3>Autoinvest Plans</h3></div>
+          <div id="plans-list"></div>
+          <div class="divider"></div>
+          <div class="add-row" style="margin-top:0;">
+            <input type="text" id="plan-label-input" placeholder="Plan name">
+          </div>
+          <div class="add-row">
+            <input type="number" id="plan-amount-input" placeholder="$ / cycle" step="1">
+          </div>
+          <select id="plan-frequency-select" style="width:100%; margin-bottom:10px; background:var(--panel-2); border:1px solid var(--hairline); border-radius:10px; padding:8px 12px; color:var(--ivory); font-family:'Space Mono',monospace; font-size:11px;">
+            <option value="weekly">Weekly</option>
+            <option value="fortnightly">Fortnightly</option>
+            <option value="monthly" selected>Monthly</option>
+          </select>
+          <button id="plan-add-btn" style="width:100%; padding:9px; border-radius:9px; border:1px solid var(--gold-dim); background:transparent; color:var(--gold-bright); font-family:'Space Mono',monospace; font-size:10.5px; letter-spacing:.06em; cursor:pointer; text-transform:uppercase;">Add Plan</button>
+        </div>
+      </div>
+
+      <div class="footnote">
+        <span class="gk">// ON DATA SOURCES —</span> crypto prices and charts come live from CoinGecko's free public API, no key required. Stock quotes and charts use Twelve Data's free tier, which does require a key (800 requests/day, free) — add yours in <code>market-config.js</code>. This isn't financial advice — it's your own data, displayed.
+      </div>
+
+      <div class="footnote">
+        <span class="gk">// ON AUTOINVEST —</span> this plans and tracks recurring contributions — it does not execute real trades or move real money. Doing that safely needs a licensed broker integration, which is a different (and heavily regulated) kind of project than a self-hosted dashboard. "Log Contribution" updates your own portfolio numbers here; nothing happens outside the app.
+      </div>
+
+      </div>
+
+      <div class="treasury-panel" id="treasury-budget" style="display:none;">
+        <div class="grid">
+          <div class="c6 panel">
+            <div class="panel-head"><h3>Budget Envelopes</h3><span class="count mono">MONTHLY</span></div>
+            <div class="goal-meta" style="margin-bottom:14px;">The envelope method, Goodbudget-style — set a monthly limit per category, log expenses as they happen.</div>
+            <div id="envelope-list"></div>
+            <div class="add-row" style="margin-top:14px;">
+              <input type="text" id="envelope-label-input" placeholder="Category (e.g. 'Groceries')">
+            </div>
+            <div class="add-row">
+              <input type="number" id="envelope-budget-input" placeholder="Monthly budget ($)" step="1">
+              <button id="envelope-add-btn">Add</button>
+            </div>
+          </div>
+
+          <div class="c6 panel">
+            <div class="panel-head"><h3>Bills & Subscriptions</h3><span class="count mono" id="bills-annual-total">$— / yr</span></div>
+            <div id="bills-list"></div>
+            <div class="add-row" style="margin-top:14px;">
+              <input type="text" id="bill-label-input" placeholder="Bill name (e.g. 'Netflix')">
+            </div>
+            <div class="add-row">
+              <input type="number" id="bill-amount-input" placeholder="$" step="0.01" style="max-width:100px;">
+              <input type="number" id="bill-day-input" placeholder="Due day (1-31)" min="1" max="31" style="max-width:130px;">
+              <button id="bill-add-btn">Add</button>
+            </div>
+          </div>
+
+          <div class="c12 panel">
+            <div class="panel-head"><h3>Savings Goals</h3></div>
+            <div class="goal-meta" style="margin-bottom:14px;">Dollar-based goals — a house deposit, an emergency fund, whatever it is.</div>
+            <div class="grid" id="savings-goals-list"></div>
+            <div class="add-row" style="max-width:600px; margin-top:14px;">
+              <input type="text" id="savings-label-input" placeholder="Goal name">
+              <input type="number" id="savings-target-input" placeholder="Target $" step="1" style="max-width:120px;">
+              <input type="date" id="savings-date-input" style="max-width:150px;">
+              <button id="savings-add-btn">Add</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="footnote">
+          <span class="gk">// ON BUDGETING —</span> envelopes, bills, and savings goals here are all manually logged — no bank account connection. That's a deliberate choice: automatic bank-sync budgeting (like Frollo or WeMoney) requires Open Banking API access, which means real banking credentials flowing through the app. The envelope method works well specifically because it doesn't need that.
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== CIRCLE (SOCIAL) ===== -->
+    <section class="view" id="view-circle">
+      <div class="eyebrow">The Circle</div>
+      <h1 class="page-title">Your Feed</h1>
+      <div class="page-sub">All House of Kong social, gathered in one hall.</div>
+
+      <div class="grid">
+        <div class="c7">
+          <div class="panel" style="margin-bottom:18px;">
+            <div class="panel-head"><h3>Spotify</h3><span class="count mono" id="spotify-status">not connected</span></div>
+            <div id="spotify-now-playing"><div class="feed-empty">Connect Spotify to show what's currently playing.</div></div>
+            <button id="spotify-connect-btn" style="margin-top:14px; padding:10px 20px; border-radius:10px; border:1px solid var(--gold-dim); background:transparent; color:var(--gold-bright); font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.08em; cursor:pointer; text-transform:uppercase;">Connect Spotify</button>
+          </div>
+
+          <div class="panel-head" style="margin-bottom:12px;"><h3>Your Feed</h3></div>
+          <div id="social-post-list"></div>
+        </div>
+        <div class="c5 panel">
+          <div class="panel-head"><h3>Network Feed Status</h3></div>
+          <div id="blogger-feed-status"></div>
+          <div class="divider"></div>
+          <div class="panel-head"><h3>Log a Post</h3></div>
+          <div class="goal-meta" style="margin-bottom:12px;">Instagram posts now live in <b style="color:var(--gold-bright);">King's Gallery</b> — this is for anything else (LXI, cross-posts, etc).</div>
+          <input type="hidden" id="social-platform-select" value="other">
+          <div class="add-row" style="margin-top:0;">
+            <input type="text" id="social-caption-input" placeholder="Caption...">
+          </div>
+          <div class="add-row">
+            <input type="url" id="social-link-input" placeholder="Post link (optional)">
+          </div>
+          <div class="add-row">
+            <input type="url" id="social-image-input" placeholder="Image URL (optional)">
+            <button id="social-post-btn">Log</button>
+          </div>
+          <div class="sync-status" id="social-sync-status"></div>
+        </div>
+      </div>
+
+      <div class="footnote">
+        <span class="gk">// A NOTE ON INSTAGRAM —</span> Instagram's API requires exchanging a secret server-side; a purely client-side self-hosted app can't do that safely, so posts are logged manually here instead of auto-pulled. Spotify's "now playing" above is a real, live connection — Spotify's PKCE flow was built for exactly this kind of app.
+      </div>
+    </section>
+
+    <!-- ===== THE REALM (KINGDOMS) ===== -->
+    <section class="view" id="view-realm">
+      <div class="eyebrow">House of Kong</div>
+      <h1 class="page-title">The Realm</h1>
+      <div class="page-sub">Four Kingdoms, one empire. Tap one to enter, or read the Decrees from all at once.</div>
+
+      <div class="grid" id="kingdom-cards"></div>
+
+      <div class="grid" id="realm-stats-row" style="margin:22px 0;"></div>
+
+      <div class="add-row" style="max-width:480px; margin-bottom:8px;">
+        <input type="text" id="realm-search-input" placeholder="Search across all Kingdoms...">
+        <button id="realm-search-btn">Search</button>
+      </div>
+
+      <div class="kingdom-filter-row" id="kingdom-filter-row"></div>
+
+      <div id="realm-feed-status" class="feed-status"><span class="fdot"></span><span id="realm-feed-status-text">Gathering the Kingdoms…</span></div>
+
+      <div class="panel" id="realm-feed-list"></div>
+    </section>
+
+    <!-- ===== ALLIANCES ===== -->
+    <section class="view" id="view-alliances">
+      <div class="eyebrow">The Court Register</div>
+      <h1 class="page-title">Alliances</h1>
+      <div class="page-sub">Your circle of trust — message and call anyone here directly.</div>
+
+      <div class="add-row" style="max-width:420px; margin-bottom:26px;">
+        <input type="email" id="alliance-email-input" placeholder="Ally with someone — enter their email...">
+        <button id="alliance-send-btn">Send</button>
+      </div>
+      <div class="sync-status" id="alliance-send-status" style="margin-bottom:20px;"></div>
+
+      <div class="panel-head" style="margin-bottom:10px;"><h3>Pending — Awaiting Your Response</h3></div>
+      <div id="alliance-incoming-list" style="margin-bottom:24px;"></div>
+
+      <div class="panel-head" style="margin-bottom:10px;"><h3>Sent — Awaiting Theirs</h3></div>
+      <div id="alliance-outgoing-list" style="margin-bottom:24px;"></div>
+
+      <div class="panel-head" style="margin-bottom:10px;"><h3>Your Allies</h3></div>
+      <div id="alliance-accepted-list"></div>
+    </section>
+
+    <!-- ===== KING'S WING ===== -->
+    <section class="view" id="view-kings">
+      <div class="eyebrow">Beyond the Blogs</div>
+      <h1 class="page-title">The King's Wing</h1>
+      <div class="page-sub">Gallery, message, and exhibitions — the rest of the empire.</div>
+
+      <div class="chip-row" style="margin-bottom:26px;">
+        <div class="chip on kwing-tab" data-tab="gallery">King's Gallery</div>
+        <div class="chip kwing-tab" data-tab="message">King's Message</div>
+        <div class="chip kwing-tab" data-tab="exhibitions">King's Art Exhibitions</div>
+      </div>
+
+      <!-- GALLERY -->
+      <div class="kwing-panel" id="kwing-gallery">
+        <div class="panel" style="margin-bottom:20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap;">
+          <div class="kingdom-seal" style="width:52px; height:52px; font-size:20px; border-color:#c9a84c;">IG</div>
+          <div style="flex:1; min-width:200px;">
+            <h4 style="font-family:'Cinzel',serif; font-size:17px; color:var(--ivory); margin-bottom:4px;">@chimp_magnettrillionaireclub</h4>
+            <div style="font-size:14px; color:var(--ivory-dim); font-style:italic;">Art, visuals, and the trillionaire club — straight from the source.</div>
+          </div>
+          <a href="https://www.instagram.com/chimp_magnettrillionaireclub" target="_blank" rel="noopener" style="padding:10px 20px; border-radius:10px; border:1px solid var(--gold-dim); color:var(--gold-bright); font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; text-decoration:none;">Visit Profile</a>
+        </div>
+
+        <div id="gallery-post-list"></div>
+
+        <div class="add-row" style="max-width:480px; margin-top:16px;">
+          <input type="url" id="gallery-post-input" placeholder="Paste an Instagram post link to add it...">
+          <button id="gallery-post-btn">Add</button>
+        </div>
+        <div class="sync-status" id="gallery-post-status"></div>
+      </div>
+
+      <!-- MESSAGE -->
+      <div class="kwing-panel" id="kwing-message" style="display:none;">
+        <div class="panel" style="margin-bottom:20px;">
+          <div class="panel-head"><h3>House of Kong — The Podcast</h3></div>
+          <div class="page-sub" style="margin-bottom:16px;">Browse and play every episode, right here — no app switch needed.</div>
+          <iframe id="kings-message-iframe" style="border-radius:14px; width:100%; height:352px; border:1px solid var(--hairline);"
+            src="" frameborder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+        </div>
+      </div>
+
+      <!-- EXHIBITIONS -->
+      <div class="kwing-panel" id="kwing-exhibitions" style="display:none;">
+        <div class="grid" id="exhibition-cards"></div>
+        <div class="footnote">
+          <span class="gk">// ON DATA —</span> collection stats come live from OpenSea's public API. Works without a key at low request volume; add a free key in <code>kings-config.js</code> if you see rate-limit errors.
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== VAULT (ENCRYPTED CHAT) ===== -->
+    <section class="view" id="view-vault">
+      <div class="eyebrow">The Vault</div>
+      <h1 class="page-title">Private Chambers</h1>
+      <div class="page-sub">End-to-end encrypted. Yours alone to hold the keys.</div>
+
+      <div class="add-row" style="max-width:420px; margin-bottom:16px;">
+        <input type="email" id="vault-new-contact" placeholder="Start a chamber — enter their email...">
+        <button id="vault-new-contact-btn">Connect</button>
+      </div>
+
+      <div class="vault-layout">
+        <div class="vault-list" id="vault-thread-list">
+          <div class="feed-empty">No chambers yet — add someone above.</div>
+        </div>
+        <div class="vault-chat">
+          <div class="vault-chat-head">
+            <h4 id="vault-active-name">Select a chamber</h4>
+            <div style="display:flex; align-items:center; gap:14px;">
+              <div id="vault-call-btn" style="width:36px; height:36px; border-radius:50%; border:1px solid var(--gold-dim); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--gold-bright);" title="Start a call">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+              </div>
+              <div class="lock-badge">🔒 ECDH + AES-256-GCM</div>
+            </div>
+          </div>
+          <div class="vault-msgs" id="vault-msgs">
+            <div class="feed-empty">Pick a chamber on the left, or start a new one above.</div>
+          </div>
+          <div class="vault-input">
+            <input type="text" id="vault-msg-input" placeholder="Message the chamber..." disabled>
+            <div class="send-btn" id="vault-send-btn"><svg viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footnote">
+        <span class="gk">// A NOTE ON SECURITY —</span> messages are encrypted in your browser before they ever reach the server, using ECDH key exchange + AES-256-GCM (Web Crypto API, no custom crypto). Supabase stores ciphertext only — it cannot read your messages. "Quantum encryption" isn't yet a real deployable consumer technology; this is the strongest standard that actually exists today.
+      </div>
+    </section>
+
+    <!-- ===== SETTINGS ===== -->
+    <section class="view" id="view-settings">
+      <div class="eyebrow">Configuration</div>
+      <h1 class="page-title">Settings</h1>
+      <div class="page-sub">Your seat, your rules.</div>
+
+      <div class="grid">
+        <div class="c6 panel">
+          <div class="panel-head"><h3>Profile</h3></div>
+          <div class="goal-meta" style="margin-bottom:14px;" id="settings-email">—</div>
+          <div class="add-row" style="max-width:100%;">
+            <input type="text" id="settings-display-name" placeholder="Display name">
+            <button id="settings-save-name-btn">Save</button>
+          </div>
+          <div class="sync-status" id="settings-name-status"></div>
+        </div>
+
+        <div class="c6 panel">
+          <div class="panel-head"><h3>Notifications</h3></div>
+          <div class="goal-meta" style="margin-bottom:14px;">Real push notifications — alliance requests reach you even when The Throne isn't open, Messenger-style.</div>
+          <button id="settings-push-btn" style="width:100%; padding:11px; border-radius:10px; border:1px solid var(--gold-dim); background:transparent; color:var(--gold-bright); font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.08em; cursor:pointer; text-transform:uppercase;">Enable Notifications</button>
+          <div class="sync-status" id="settings-push-status"></div>
+        </div>
+
+        <div class="c6 panel">
+          <div class="panel-head"><h3>Connected Services</h3></div>
+          <div class="holding-row">
+            <div class="h-name">Spotify</div>
+            <div class="h-val" id="settings-spotify-status">not connected</div>
+          </div>
+          <button id="settings-spotify-btn" style="margin-top:14px; padding:10px 20px; border-radius:10px; border:1px solid var(--gold-dim); background:transparent; color:var(--gold-bright); font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.08em; cursor:pointer; text-transform:uppercase;">Manage</button>
+        </div>
+
+        <div class="c6 panel">
+          <div class="panel-head"><h3>Vault Security</h3></div>
+          <div class="goal-meta" style="margin-bottom:14px;">Change the passphrase that protects your private key. You'll need the new one on every device from now on — old devices already unlocked stay unlocked.</div>
+          <input type="password" id="settings-new-pass" placeholder="New passphrase" autocomplete="off">
+          <input type="password" id="settings-new-pass-confirm" placeholder="Confirm new passphrase" autocomplete="off" style="margin-top:10px;">
+          <button id="settings-change-pass-btn" style="margin-top:12px; width:100%; padding:11px; border-radius:10px; border:1px solid var(--gold-dim); background:transparent; color:var(--gold-bright); font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.08em; cursor:pointer; text-transform:uppercase;">Update Passphrase</button>
+          <div class="sync-status" id="settings-pass-status"></div>
+        </div>
+
+        <div class="c6 panel">
+          <div class="panel-head"><h3>Your Data</h3></div>
+          <div class="goal-meta" style="margin-bottom:14px;">Download everything you've stored — tasks, goals, fitness logs, splits, social posts, portfolio, custom topics — as one JSON file. Vault messages stay encrypted in the export; nobody but you can read them.</div>
+          <button id="settings-export-btn" style="width:100%; padding:11px; border-radius:10px; border:1px solid var(--gold-dim); background:transparent; color:var(--gold-bright); font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.08em; cursor:pointer; text-transform:uppercase;">Export All Data</button>
+          <div class="sync-status" id="settings-export-status"></div>
+        </div>
+
+        <div class="c12 panel">
+          <div class="panel-head"><h3>Self-Hosting</h3></div>
+          <div class="task-row"><div class="txt">Running from: <span id="settings-origin" style="color:var(--gold-bright);">—</span></div></div>
+          <div class="task-row"><div class="txt">Edit <code>config.js</code> for Blogger/RSS feeds, <code>market-config.js</code> for stock data, <code>spotify-config.js</code> for Spotify — see README.md</div></div>
+          <div class="task-row" style="border-bottom:none;">
+            <button id="settings-signout-btn" style="padding:10px 22px; border-radius:10px; border:1px solid #4a2b26; background:transparent; color:#c98c7f; font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.08em; cursor:pointer; text-transform:uppercase;">Sign Out</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="mobile-nav">
+    <div class="rail-btn active" data-view="dashboard">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      <span class="mnav-label">Home</span>
+    </div>
+    <div class="rail-btn" data-view="news">
+      <svg viewBox="0 0 24 24"><path d="M4 5h16v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
+      <span class="mnav-label">News</span>
+    </div>
+    <div class="rail-btn" data-view="fitness">
+      <svg viewBox="0 0 24 24"><path d="M6 7v10M18 7v10M2 10v4M22 10v4M6 12h12"/></svg>
+      <span class="mnav-label">Forge</span>
+    </div>
+    <div class="rail-btn" data-view="productivity">
+      <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      <span class="mnav-label">Tasks</span>
+    </div>
+    <div class="rail-btn" data-view="goals">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>
+      <span class="mnav-label">Goals</span>
+    </div>
+    <div class="rail-btn" data-view="markets">
+      <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>
+      <span class="mnav-label">Markets</span>
+    </div>
+    <div class="rail-btn" data-view="circle">
+      <svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3.2"/><circle cx="17" cy="9" r="2.6"/><path d="M2.5 20c0-3.6 2.9-6.2 5.5-6.2s5.5 2.6 5.5 6.2M13.5 20c0-2.6 1.9-4.6 4.5-4.6s4.5 2 4.5 4.6"/></svg>
+      <span class="mnav-label">Circle</span>
+    </div>
+    <div class="rail-btn" data-view="realm">
+      <svg viewBox="0 0 24 24"><path d="M12 2l2.5 5 5.5.7-4 4 1 5.5L12 14.5 7 17.2l1-5.5-4-4L9.5 7z"/></svg>
+      <span class="mnav-label">Realm</span>
+    </div>
+    <div class="rail-btn" data-view="alliances">
+      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span class="mnav-label">Allies</span>
+    </div>
+    <div class="rail-btn" data-view="kings">
+      <svg viewBox="0 0 24 24"><path d="M3 20h18M4 20V10l4 3 4-6 4 6 4-3v10"/></svg>
+      <span class="mnav-label">Kings</span>
+    </div>
+    <div class="rail-btn" data-view="vault">
+      <svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15" r="1.5"/></svg>
+      <span class="mnav-label">Vault</span>
+    </div>
+    <div class="rail-btn" data-view="settings">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      <span class="mnav-label">Settings</span>
+    </div>
+  </nav>
+</div>
+
+<div id="call-overlay">
+  <video class="call-remote-video" id="call-remote-video" autoplay playsinline></video>
+  <video class="call-local-video" id="call-local-video" autoplay playsinline muted></video>
+
+  <div class="call-info" id="call-info">
+    <div class="c-seal" id="call-seal">?</div>
+    <h3 id="call-name">—</h3>
+    <div class="c-status" id="call-status">Calling…</div>
+  </div>
+
+  <div class="call-incoming-actions" id="call-incoming-actions" style="display:none;">
+    <div class="call-btn hangup" id="call-decline-btn">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+    </div>
+    <div class="call-btn active-off" id="call-accept-btn">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+    </div>
+  </div>
+
+  <div class="call-controls" id="call-active-controls" style="display:none;">
+    <div class="call-btn" id="call-mic-btn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/></svg>
+    </div>
+    <div class="call-btn" id="call-cam-btn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+    </div>
+    <div class="call-btn hangup" id="call-hangup-btn">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1-1a2 2 0 0 1 2.11-.45 12.3 12.3 0 0 0 3.81.61 2 2 0 0 1 2 2v3.5a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3.5a2 2 0 0 1 2 2 12.3 12.3 0 0 0 .61 3.81 2 2 0 0 1-.45 2.11l-1 1z"/><line x1="23" y1="1" x2="1" y2="23"/></svg>
+    </div>
+  </div>
+</div>
+
+<script>
+  const buttons = document.querySelectorAll('.rail-btn[data-view]');
+  const views = document.querySelectorAll('.view');
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      buttons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const target = btn.getAttribute('data-view');
+      views.forEach(v => v.classList.remove('active'));
+      document.getElementById('view-' + target).classList.add('active');
+    });
+  });
+
+  // live clock
+  function tick(){
+    const d = new Date();
+    let h = d.getHours(); const m = d.getMinutes();
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12; if(h===0) h = 12;
+    document.getElementById('clock').textContent =
+      String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ' ' + ampm;
+  }
+  tick(); setInterval(tick, 1000*30);
+
+  // service worker registration lives in app.js
+</script>
+<script src="config.js"></script>
+<script src="feeds.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="supabase-config.js"></script>
+<script src="supabase-client.js"></script>
+<script src="vault-crypto.js"></script>
+<script src="auth.js"></script>
+<script src="sync.js"></script>
+<script src="spotify-config.js"></script>
+<script src="spotify.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="market-config.js"></script>
+<script src="markets.js"></script>
+<script src="webrtc.js"></script>
+<script src="kings-config.js"></script>
+<script src="kings.js"></script>
+<script src="push-config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
