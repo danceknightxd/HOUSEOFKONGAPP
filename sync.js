@@ -7,6 +7,13 @@
    ============================================================ */
 
 const ThroneSync = (() => {
+  // Unique per-call suffix — prevents channel name collisions when the
+  // same subscribe function is called from more than one place (e.g.
+  // Circle and King's Gallery both listening to social_posts changes).
+  function uniqueChannelSuffix() {
+    return Math.random().toString(36).slice(2, 9);
+  }
+
 
   // ---------- TASKS ----------
   async function loadTasks() {
@@ -27,7 +34,7 @@ const ThroneSync = (() => {
 
   function subscribeTasks(onChange) {
     return supabaseClient
-      .channel("tasks-changes")
+      .channel("tasks-changes-" + uniqueChannelSuffix())
       .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, onChange)
       .subscribe();
   }
@@ -68,7 +75,7 @@ const ThroneSync = (() => {
 
   function subscribeGoals(onChange) {
     return supabaseClient
-      .channel("goals-changes")
+      .channel("goals-changes-" + uniqueChannelSuffix())
       .on("postgres_changes", { event: "*", schema: "public", table: "goals" }, onChange)
       .subscribe();
   }
@@ -88,7 +95,7 @@ const ThroneSync = (() => {
 
   function subscribeFitness(onChange) {
     return supabaseClient
-      .channel("fitness-changes")
+      .channel("fitness-changes-" + uniqueChannelSuffix())
       .on("postgres_changes", { event: "*", schema: "public", table: "fitness_logs" }, onChange)
       .subscribe();
   }
@@ -129,7 +136,7 @@ const ThroneSync = (() => {
 
   function subscribeSplits(onChange) {
     return supabaseClient
-      .channel("splits-changes")
+      .channel("splits-changes-" + uniqueChannelSuffix())
       .on("postgres_changes", { event: "*", schema: "public", table: "workout_splits" }, onChange)
       .subscribe();
   }
@@ -149,7 +156,7 @@ const ThroneSync = (() => {
 
   function subscribeSocialPosts(onChange) {
     return supabaseClient
-      .channel("social-posts-changes")
+      .channel("social-posts-changes-" + uniqueChannelSuffix())
       .on("postgres_changes", { event: "*", schema: "public", table: "social_posts" }, onChange)
       .subscribe();
   }
@@ -174,7 +181,7 @@ const ThroneSync = (() => {
 
   function subscribeCustomTopics(onChange) {
     return supabaseClient
-      .channel("news-topics-changes")
+      .channel("news-topics-changes-" + uniqueChannelSuffix())
       .on("postgres_changes", { event: "*", schema: "public", table: "news_topics" }, onChange)
       .subscribe();
   }
@@ -198,7 +205,7 @@ const ThroneSync = (() => {
 
   function subscribePortfolio(onChange) {
     return supabaseClient
-      .channel("portfolio-changes")
+      .channel("portfolio-changes-" + uniqueChannelSuffix())
       .on("postgres_changes", { event: "*", schema: "public", table: "portfolio_holdings" }, onChange)
       .subscribe();
   }
@@ -224,7 +231,7 @@ const ThroneSync = (() => {
 
   function subscribeExerciseLogs(onChange) {
     return supabaseClient
-      .channel("exercise-logs-changes")
+      .channel("exercise-logs-changes-" + uniqueChannelSuffix())
       .on("postgres_changes", { event: "*", schema: "public", table: "exercise_logs" }, onChange)
       .subscribe();
   }
@@ -282,7 +289,7 @@ const ThroneSync = (() => {
 
   function subscribeAlliances(onChange) {
     return supabaseClient
-      .channel("alliances-changes")
+      .channel("alliances-changes-" + uniqueChannelSuffix())
       .on("postgres_changes", { event: "*", schema: "public", table: "alliances" }, onChange)
       .subscribe();
   }
@@ -310,7 +317,7 @@ const ThroneSync = (() => {
 
   function subscribeOtherAssets(onChange) {
     return supabaseClient
-      .channel("other-assets-changes")
+      .channel("other-assets-changes-" + uniqueChannelSuffix())
       .on("postgres_changes", { event: "*", schema: "public", table: "other_assets" }, onChange)
       .subscribe();
   }
@@ -361,7 +368,7 @@ const ThroneSync = (() => {
 
   function subscribeInvestmentPlans(onChange) {
     return supabaseClient
-      .channel("investment-plans-changes")
+      .channel("investment-plans-changes-" + uniqueChannelSuffix())
       .on("postgres_changes", { event: "*", schema: "public", table: "investment_plans" }, onChange)
       .subscribe();
   }
@@ -415,7 +422,7 @@ const ThroneSync = (() => {
 
   function subscribeEnvelopes(onChange) {
     return supabaseClient
-      .channel("envelope-changes")
+      .channel("envelope-changes-" + uniqueChannelSuffix())
       .on("postgres_changes", { event: "*", schema: "public", table: "budget_envelopes" }, onChange)
       .on("postgres_changes", { event: "*", schema: "public", table: "envelope_expenses" }, onChange)
       .subscribe();
@@ -444,7 +451,7 @@ const ThroneSync = (() => {
 
   function subscribeBills(onChange) {
     return supabaseClient
-      .channel("bills-changes")
+      .channel("bills-changes-" + uniqueChannelSuffix())
       .on("postgres_changes", { event: "*", schema: "public", table: "bills" }, onChange)
       .subscribe();
   }
@@ -474,7 +481,7 @@ const ThroneSync = (() => {
 
   function subscribeSavingsGoals(onChange) {
     return supabaseClient
-      .channel("savings-goals-changes")
+      .channel("savings-goals-changes-" + uniqueChannelSuffix())
       .on("postgres_changes", { event: "*", schema: "public", table: "savings_goals" }, onChange)
       .subscribe();
   }

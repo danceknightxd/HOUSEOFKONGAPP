@@ -84,8 +84,10 @@ const THRONE_CONFIG = {
     { name: "World",              enabled: false, rss: "http://feeds.bbci.co.uk/news/world/rss.xml" }
   ],
 
-  // How many items to pull per topic (from the source, before pagination)
-  itemsPerTopic: 20,
+  // How many items to pull per topic (from the source, before pagination).
+  // NOTE: rss2json's free tier (no API key) rejects counts above ~10 with
+  // a 422 error — keep this at 10 unless you've added rss2jsonApiKey above.
+  itemsPerTopic: 10,
 
   // How many items shown in the dashboard "Briefing" panel (mixed, newest-first)
   dashboardBriefingCount: 5,
