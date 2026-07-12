@@ -600,8 +600,8 @@
       <div class="stat-row">
         <div class="stat panel">
           <div class="k">Steps Today</div>
-          <div class="v">8,240 <small>/ 10k</small></div>
-          <div class="delta">▲ 12% vs. avg</div>
+          <div class="v" id="dash-steps-value">— <small>/ 10k</small></div>
+          <div class="delta" id="dash-steps-delta"></div>
         </div>
         <div class="stat panel">
           <div class="k">Tasks Cleared</div>
@@ -659,6 +659,9 @@
       <div id="news-feed-status" class="feed-status"><span class="fdot"></span><span id="news-feed-status-text">Connecting to feeds…</span></div>
 
       <div class="panel" id="news-full-list"></div>
+      <div style="text-align:center; margin-top:18px;">
+        <button id="news-load-more-btn" style="padding:11px 28px; border-radius:10px; border:1px solid var(--gold-dim); background:transparent; color:var(--gold-bright); font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.08em; cursor:pointer; text-transform:uppercase; display:none;">Load More</button>
+      </div>
     </section>
 
     <!-- ===== FITNESS ===== -->

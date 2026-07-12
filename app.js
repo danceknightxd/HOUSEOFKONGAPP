@@ -29,6 +29,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       chip.classList.toggle("on");
       if (chip.classList.contains("on")) activeTopics.add(t.name);
       else activeTopics.delete(t.name);
+      newsPage = 1;
       renderNewsFull();
     });
     chipRow.appendChild(chip);
@@ -61,9 +62,20 @@ document.addEventListener("DOMContentLoaded", async () => {
       THRONE_CONFIG.topics.filter(t => t.enabled).length + " topics";
   }
 
+  let newsPage = 1;
   function renderNewsFull() {
     const filtered = ThroneFeeds.getStore().filter(i => activeTopics.has(i.topic));
-    ThroneFeeds.renderNewsList(newsFullList, filtered, "No stories match your selected topics right now.");
+    const pageSize = THRONE_CONFIG.newsPageSize;
+    const visible = filtered.slice(0, newsPage * pageSize);
+    ThroneFeeds.renderNewsList(newsFullList, visible, "No stories match your selected topics right now.");
+
+    const loadMoreBtn = document.getElementById("news-load-more-btn");
+    if (filtered.length > visible.length) {
+      loadMoreBtn.style.display = "inline-block";
+      loadMoreBtn.textContent = `Load More (${filtered.length - visible.length} remaining)`;
+    } else {
+      loadMoreBtn.style.display = "none";
+    }
   }
 
   // ---------- Blogger feed status list (Circle view) ----------
@@ -711,6 +723,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // ---------- CUSTOM NEWS TOPICS (user-typed, per-account) ----------
   async function bootCustomTopics() {
+    document.getElementById("news-load-more-btn").addEventListener("click", () => {
+      newsPage++;
+      renderNewsFull();
+    });
+
     async function addChipForTopic(topicRow) {
       const chip = document.createElement("div");
       chip.className = "chip on";
@@ -720,6 +737,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         activeTopics.delete(topicRow.name);
         await ThroneSync.removeCustomTopic(topicRow.id);
         chip.remove();
+        newsPage = 1;
         renderNewsFull();
       });
       chipRow.insertBefore(chip, addChip);
@@ -930,6 +948,20 @@ document.addEventListener("DOMContentLoaded", async () => {
         ThroneSync.loadFitnessLogs(30),
         ThroneSync.loadGoals()
       ]);
+
+      // Steps: today's logged steps value (from Fitness Quick Log → steps)
+      const stepsToday = fitness
+        .filter(f => f.metric === "steps" && new Date(f.logged_at).toDateString() === new Date().toDateString())
+        .reduce((max, f) => Math.max(max, f.value), 0);
+      const stepsEl = document.getElementById("dash-steps-value");
+      const stepsDeltaEl = document.getElementById("dash-steps-delta");
+      if (stepsToday > 0) {
+        stepsEl.innerHTML = `${Math.round(stepsToday).toLocaleString()} <small>/ 10k</small>`;
+        stepsDeltaEl.textContent = stepsToday >= 10000 ? "Goal reached" : `${Math.round((stepsToday / 10000) * 100)}% of goal`;
+      } else {
+        stepsEl.innerHTML = `— <small>/ 10k</small>`;
+        stepsDeltaEl.textContent = "No steps logged today";
+      }
 
       // Deep Work: total focus minutes this week vs a 600min (10hr) target
       const deepWorkMinutes = sessions.reduce((sum, s) => sum + s.duration_minutes, 0);

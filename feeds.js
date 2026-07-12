@@ -89,21 +89,37 @@ const ThroneFeeds = (() => {
   // ---------- External RSS via rss2json ----------
   async function fetchRssTopic(topicConfig) {
     const key = THRONE_CONFIG.rss2jsonApiKey ? `&api_key=${THRONE_CONFIG.rss2jsonApiKey}` : "";
-    const endpoint = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(topicConfig.rss)}${key}`;
+    const count = `&count=${THRONE_CONFIG.itemsPerTopic}`;
+    const endpoint = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(topicConfig.rss)}${key}${count}`;
     try {
       const res = await fetch(endpoint);
       const data = await res.json();
       if (data.status !== "ok") throw new Error(data.message || "feed error");
-      const entries = (data.items || []).slice(0, THRONE_CONFIG.itemsPerTopic).map(item => ({
-        topic: topicConfig.name,
-        title: stripHtml(item.title),
-        link: item.link,
-        source: hostFromUrl(item.link),
-        date: item.pubDate,
-        summary: stripHtml(item.description).slice(0, 160),
-        thumbnail: item.thumbnail || item.enclosure?.link || null,
-        kind: "rss"
-      }));
+      const entries = (data.items || []).slice(0, THRONE_CONFIG.itemsPerTopic).map(item => {
+        // rss2json auto-extracts a thumbnail for most sources, but not
+        // all (some feeds just don't tag images the way it expects) —
+        // fall back to pulling the first <img> out of the article's
+        // own content/description HTML, same trick used for Blogger.
+        let thumbnail = item.thumbnail || item.enclosure?.link || null;
+        if (!thumbnail && item.content) {
+          const match = item.content.match(/<img[^>]+src=["']([^"']+)["']/i);
+          if (match) thumbnail = match[1];
+        }
+        if (!thumbnail && item.description) {
+          const match = item.description.match(/<img[^>]+src=["']([^"']+)["']/i);
+          if (match) thumbnail = match[1];
+        }
+        return {
+          topic: topicConfig.name,
+          title: stripHtml(item.title),
+          link: item.link,
+          source: hostFromUrl(item.link),
+          date: item.pubDate,
+          summary: stripHtml(item.description).slice(0, 160),
+          thumbnail,
+          kind: "rss"
+        };
+      });
       return { ok: true, entries, topic: topicConfig };
     } catch (e) {
       return { ok: false, error: e.message, topic: topicConfig };
