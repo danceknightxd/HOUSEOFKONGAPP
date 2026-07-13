@@ -424,6 +424,80 @@ Editor + file uploads like everything else.
 **If you already have a live Supabase project:** run
 `migration-push.sql` first, then follow `EDGE_FUNCTION_SETUP.md`.
 
+## Markets — editable watchlist, currency, portfolio editing, detail view
+
+Four real gaps closed:
+
+- **Watchlist is now yours to edit** — no more hardcoded list in a config
+  file. Add or remove crypto/stock symbols directly in the app, same
+  spirit as custom news topics. Backed by a new `watchlist_items` table.
+- **Display currency** — set yours in Settings (auto-detected from your
+  browser's locale on first use, e.g. Australia → AUD). Crypto prices
+  convert *for real* via CoinGecko's native multi-currency support —
+  not just relabeled. Stocks show in their exchange's own listed
+  currency (Twelve Data doesn't offer currency conversion, so an ASX
+  stock shows AUD, a NASDAQ stock shows USD — labeled honestly rather
+  than falsely converted). Manually-typed dollar amounts (budgets, net
+  worth, bills) just relabel with the currency symbol, since there's no
+  original currency to convert *from* — you typed them in whatever
+  currency you meant.
+- **Portfolio holdings are now editable** — click any holding to open
+  its detail view, change the quantity, add/update your average price
+  paid, or remove it entirely. `removeHolding` existed in the code from
+  early on but was never actually wired to a button — now it is.
+- **Real holding detail view** — click any watchlist card or portfolio
+  holding for price, 24h change, a 30-day chart, and if it's in your
+  portfolio: market value, avg. price paid, and real unrealized P&L.
+  No Buy/Sell buttons — The Throne doesn't execute trades (see the
+  Autoinvest section above for why), so those would be fake affordances
+  that do nothing. Everything shown is real, nothing is decorative.
+
+**If you already have a live Supabase project:** run
+`migration-watchlist.sql` once in the SQL Editor.
+
+## Tasks, Goals, and the date — three real gaps closed
+
+- **Completed tasks now auto-clear 24 hours after being marked done** —
+  and you can also remove any task manually at any time (✕ on each
+  row), done or not. No more clutter piling up forever.
+- **Goals are now actually editable** — a slider on each goal card lets
+  you move progress up or down anytime, a "Mark Complete" shortcut
+  jumps straight to 100%, and "Remove" deletes a goal you've abandoned
+  or finished tracking. `updateGoalProgress` existed in the code since
+  early on but was never wired to anything in the UI — now it is.
+- **The date was hardcoded** — literally the text "TUE · JUL 07" typed
+  into the HTML, never touched by any code, from the very first mockup.
+  It's now computed live from the device's own local time, which
+  naturally matches whatever country/timezone you're actually in — no
+  geolocation needed, since that's just how a phone's clock already works.
+
+**If you already have a live Supabase project:** run
+`migration-watchlist.sql` again if you haven't already for this
+session's changes — it now also adds the `completed_at` column tasks
+need for the 24-hour auto-clear.
+
+## Dashboard stat tiles — now actually linked (they weren't)
+
+Good question that led to finding two more of the same bug: **Tasks
+Cleared** and **Goals in Motion** on the Dashboard were hardcoded "6/9"
+and "4" — completely disconnected from the real Tasks and Goals views.
+**Vault Messages** had the same problem, and also exposed that unread
+tracking didn't exist in the database at all yet.
+
+All three are real now:
+- **Tasks Cleared** — actual done/total count from your task queue,
+  updates live the moment you check something off.
+- **Goals in Motion** — real count of goals under 100%, with completed
+  count shown below it.
+- **Vault Messages** — genuine unread count. Opening a Vault thread now
+  marks its messages read (new `read_at` column), so this number means
+  something real instead of a static "2 unread" that never changed.
+
+**If you already have a live Supabase project:** run
+`migration-watchlist.sql` again — it's been updated to include the new
+`read_at` column alongside this session's other additions. Every
+statement in it is safe to re-run even if you ran an earlier version.
+
 ## What's still a UI shell (not wired up)
 
 **Tasks, Goals, Fitness, Training Splits, News (including custom

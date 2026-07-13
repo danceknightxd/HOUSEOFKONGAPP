@@ -29,7 +29,18 @@ const ThroneSync = (() => {
   }
 
   async function toggleTask(id, done) {
-    return supabaseClient.from("tasks").update({ done }).eq("id", id);
+    return supabaseClient.from("tasks").update({ done, completed_at: done ? new Date().toISOString() : null }).eq("id", id);
+  }
+
+  async function removeTask(id) {
+    return supabaseClient.from("tasks").delete().eq("id", id);
+  }
+
+  // Deletes tasks that were marked done more than 24 hours ago. Safe to
+  // call on every load — only touches already-completed, already-old tasks.
+  async function purgeOldCompletedTasks() {
+    const cutoff = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    return supabaseClient.from("tasks").delete().eq("done", true).lt("completed_at", cutoff);
   }
 
   function subscribeTasks(onChange) {
@@ -71,6 +82,10 @@ const ThroneSync = (() => {
 
   async function updateGoalProgress(id, progress_pct) {
     return supabaseClient.from("goals").update({ progress_pct }).eq("id", id);
+  }
+
+  async function removeGoal(id) {
+    return supabaseClient.from("goals").delete().eq("id", id);
   }
 
   function subscribeGoals(onChange) {
@@ -194,9 +209,15 @@ const ThroneSync = (() => {
     return data;
   }
 
-  async function addHolding(asset_type, symbol, label, quantity) {
+  async function addHolding(asset_type, symbol, label, quantity, avgPrice) {
     const user = ThroneAuth.getUser();
-    return supabaseClient.from("portfolio_holdings").insert({ user_id: user.id, asset_type, symbol, label, quantity });
+    return supabaseClient.from("portfolio_holdings").insert({ user_id: user.id, asset_type, symbol, label, quantity, avg_price: avgPrice || null });
+  }
+
+  async function updateHolding(id, quantity, avgPrice) {
+    const updates = { quantity };
+    if (avgPrice !== undefined) updates.avg_price = avgPrice;
+    return supabaseClient.from("portfolio_holdings").update(updates).eq("id", id);
   }
 
   async function removeHolding(id) {
@@ -486,6 +507,49 @@ const ThroneSync = (() => {
       .subscribe();
   }
 
+  // ---------- WATCHLIST (user-editable, replaces hardcoded config) ----------
+  async function loadWatchlist() {
+    const { data, error } = await supabaseClient
+      .from("watchlist_items").select("*").order("created_at", { ascending: true });
+    if (error) throw error;
+    return data;
+  }
+
+  async function addWatchlistItem(assetType, symbol, label) {
+    const user = ThroneAuth.getUser();
+    return supabaseClient.from("watchlist_items").insert({ user_id: user.id, asset_type: assetType, symbol, label });
+  }
+
+  async function removeWatchlistItem(id) {
+    return supabaseClient.from("watchlist_items").delete().eq("id", id);
+  }
+
+  function subscribeWatchlist(onChange) {
+    return supabaseClient
+      .channel("watchlist-changes-" + uniqueChannelSuffix())
+      .on("postgres_changes", { event: "*", schema: "public", table: "watchlist_items" }, onChange)
+      .subscribe();
+  }
+
+  async function markThreadMessagesRead(threadId) {
+    const user = ThroneAuth.getUser();
+    return supabaseClient.from("vault_messages")
+      .update({ read_at: new Date().toISOString() })
+      .eq("thread_id", threadId).neq("sender_id", user.id).is("read_at", null);
+  }
+
+  async function loadUnreadMessageCount() {
+    const user = ThroneAuth.getUser();
+    const { data: myThreads } = await supabaseClient
+      .from("vault_participants").select("thread_id").eq("user_id", user.id);
+    if (!myThreads || !myThreads.length) return 0;
+    const threadIds = myThreads.map(t => t.thread_id);
+    const { count } = await supabaseClient
+      .from("vault_messages").select("id", { count: "exact", head: true })
+      .in("thread_id", threadIds).neq("sender_id", user.id).is("read_at", null);
+    return count || 0;
+  }
+
   // ---------- VAULT ----------
   // Get (or create) a two-person thread between me and another user's email.
   async function getOrCreateThreadWith(otherEmail) {
@@ -573,16 +637,17 @@ const ThroneSync = (() => {
   }
 
   return {
-    loadTasks, addTask, toggleTask, subscribeTasks,
+    loadTasks, addTask, toggleTask, removeTask, purgeOldCompletedTasks, subscribeTasks,
     logFocusSession, loadFocusSessions,
-    loadGoals, addGoal, updateGoalProgress, subscribeGoals,
+    loadGoals, addGoal, updateGoalProgress, removeGoal, subscribeGoals,
     loadFitnessLogs, logMetric, subscribeFitness,
     loadExerciseLogs, logExercise, removeExerciseLog, subscribeExerciseLogs,
     savePushSubscription, removePushSubscription,
     loadSplits, upsertSplit, subscribeSplits,
     loadSocialPosts, addSocialPost, subscribeSocialPosts,
     loadCustomTopics, addCustomTopic, removeCustomTopic, subscribeCustomTopics,
-    loadPortfolio, addHolding, removeHolding, subscribePortfolio,
+    loadPortfolio, addHolding, updateHolding, removeHolding, subscribePortfolio,
+    loadWatchlist, addWatchlistItem, removeWatchlistItem, subscribeWatchlist,
     loadOtherAssets, addOtherAsset, updateOtherAssetValue, removeOtherAsset, subscribeOtherAssets,
     loadInvestmentPlans, addInvestmentPlan, logPlanContribution, removeInvestmentPlan, subscribeInvestmentPlans,
     updateFiExpenses, loadFiExpenses,
@@ -592,6 +657,7 @@ const ThroneSync = (() => {
     updateDisplayName,
     loadAlliances, sendAllianceRequest, respondToAlliance, removeAlliance, subscribeAlliances,
     getOrCreateThreadWith, getOrCreateThreadWithUserId,
+    markThreadMessagesRead, loadUnreadMessageCount,
     loadThreadMessages, sendMessage, subscribeThreadMessages
   };
 })();

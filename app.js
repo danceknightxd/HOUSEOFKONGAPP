@@ -144,8 +144,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     bootAlliances();
     bootCalling();
     bootKings();
+    bootHoldingDetailModal();
+    bootCurrencySetting();
     bootFocusTimer();
     bootDashboardMomentum();
+    refreshDashboardCoreStats();
     bootNetWorth();
     bootFI();
     bootPlans();
@@ -196,6 +199,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         <div class="check ${t.done ? "done" : ""}"></div>
         <div class="txt">${t.title}${formatDueBadge(t.due_date)}${t.recurrence && t.recurrence !== "none" ? ` <span style="color:var(--gold-dim); font-size:12px;">↻</span>` : ""}</div>
         <div class="prio ${t.priority} focus-select-task" data-title="${t.title.replace(/"/g, "&quot;")}" style="cursor:pointer;" title="Click to focus on this task">${priorityLabel(t.priority)}</div>
+        <span class="task-remove" data-id="${t.id}" style="color:var(--ivory-dim); cursor:pointer; font-size:14px; margin-left:10px;" title="Remove">✕</span>
       </div>`).join("");
 
     list.querySelectorAll(".check").forEach(chk => {
@@ -211,11 +215,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     list.querySelectorAll(".focus-select-task").forEach(el => {
       el.addEventListener("click", () => setFocusTask(el.dataset.title));
     });
+
+    list.querySelectorAll(".task-remove").forEach(el => {
+      el.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        await ThroneSync.removeTask(el.dataset.id);
+      });
+    });
   }
 
   async function bootTasks() {
     const statusEl = document.getElementById("task-sync-status");
     try {
+      await ThroneSync.purgeOldCompletedTasks();
       const tasks = await ThroneSync.loadTasks();
       renderTasks(tasks);
       statusEl.textContent = "Synced across your devices.";
@@ -256,6 +268,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     ThroneSync.subscribeTasks(async () => {
       const tasks = await ThroneSync.loadTasks();
       renderTasks(tasks);
+      refreshDashboardCoreStats();
     });
   }
 
@@ -437,11 +450,34 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
     list.innerHTML = goals.map(g => `
-      <div class="goal-card">
+      <div class="goal-card" data-id="${g.id}">
         <div class="goal-top"><h4>${g.title}</h4><span class="pct">${g.progress_pct}%</span></div>
         <div class="bar-track"><div class="bar-fill" style="width:${g.progress_pct}%"></div></div>
-        <div class="goal-meta">${g.meta || ""}</div>
+        <div class="goal-meta" style="margin-bottom:10px;">${g.meta || ""}</div>
+        <input type="range" class="goal-progress-slider" data-id="${g.id}" min="0" max="100" step="5" value="${g.progress_pct}" style="width:100%; margin-bottom:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span class="ally-btn goal-complete-btn" data-id="${g.id}">Mark Complete</span>
+          <span class="ally-btn decline goal-remove-btn" data-id="${g.id}">Remove</span>
+        </div>
       </div>`).join("");
+
+    list.querySelectorAll(".goal-progress-slider").forEach(slider => {
+      slider.addEventListener("change", async () => {
+        await ThroneSync.updateGoalProgress(slider.dataset.id, parseInt(slider.value));
+      });
+    });
+    list.querySelectorAll(".goal-complete-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        await ThroneSync.updateGoalProgress(btn.dataset.id, 100);
+      });
+    });
+    list.querySelectorAll(".goal-remove-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (confirm("Remove this goal? This can't be undone.")) {
+          await ThroneSync.removeGoal(btn.dataset.id);
+        }
+      });
+    });
   }
 
   async function bootGoals() {
@@ -468,6 +504,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     ThroneSync.subscribeGoals(async () => {
       const goals = await ThroneSync.loadGoals();
       renderGoals(goals);
+      refreshDashboardCoreStats();
     });
   }
 
@@ -778,55 +815,114 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // ---------- MARKETS ----------
+  // ---------- CURRENCY ----------
+  const CURRENCY_KEY = "throne_display_currency";
+  function detectDefaultCurrency() {
+    const locale = navigator.language || "en-US";
+    const map = { "en-AU": "AUD", "en-GB": "GBP", "en-CA": "CAD", "en-NZ": "NZD", "en-IN": "INR", "ja-JP": "JPY", "en-US": "USD" };
+    return map[locale] || "USD";
+  }
+  function getCurrency() {
+    return localStorage.getItem(CURRENCY_KEY) || detectDefaultCurrency();
+  }
+  function setCurrency(code) {
+    localStorage.setItem(CURRENCY_KEY, code);
+  }
   function fmtUsd(n) {
     if (n == null || isNaN(n)) return "$—";
-    return "$" + n.toLocaleString(undefined, { maximumFractionDigits: n < 10 ? 4 : 2 });
+    const currency = getCurrency();
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: "currency", currency,
+        maximumFractionDigits: n < 10 ? 4 : 2
+      }).format(n);
+    } catch (e) {
+      return "$" + n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
   }
 
   async function renderWatchlist() {
     const container = document.getElementById("watchlist-cards");
-    container.innerHTML = "";
+    container.innerHTML = `<div class="feed-empty">Loading watchlist…</div>`;
 
+    let items;
     try {
-      const cryptoPrices = await ThroneMarkets.getCryptoPrices(MARKET_CONFIG.watchlist.crypto);
-      MARKET_CONFIG.watchlist.crypto.forEach(id => {
-        const p = cryptoPrices[id];
-        const card = document.createElement("div");
-        card.className = "market-card";
-        const change = p ? p.usd_24h_change : null;
-        card.innerHTML = `
-          <div class="m-name">${id}</div>
-          <div class="m-price">${p ? fmtUsd(p.usd) : "—"}</div>
-          <div class="m-change ${change >= 0 ? "up" : "down"}">${change != null ? (change >= 0 ? "▲" : "▼") + Math.abs(change).toFixed(2) + "%" : ""}</div>`;
-        card.addEventListener("click", () => renderChart("crypto", id, id));
-        container.appendChild(card);
-      });
+      items = await ThroneSync.loadWatchlist();
     } catch (e) {
-      container.innerHTML += `<div class="feed-empty">Couldn't reach CoinGecko right now.</div>`;
+      container.innerHTML = `<div class="feed-empty">Couldn't load your watchlist — check Supabase config.</div>`;
+      return;
     }
 
-    if (ThroneMarkets.hasStockKey()) {
-      try {
-        const stockPrices = await ThroneMarkets.getStockPrices(MARKET_CONFIG.watchlist.stocks);
-        MARKET_CONFIG.watchlist.stocks.forEach(sym => {
-          const q = stockPrices[sym];
-          const card = document.createElement("div");
-          card.className = "market-card";
-          const change = q ? parseFloat(q.percent_change) : null;
-          card.innerHTML = `
-            <div class="m-name">${sym}</div>
-            <div class="m-price">${q ? fmtUsd(parseFloat(q.close)) : "—"}</div>
-            <div class="m-change ${change >= 0 ? "up" : "down"}">${change != null ? (change >= 0 ? "▲" : "▼") + Math.abs(change).toFixed(2) + "%" : ""}</div>`;
-          card.addEventListener("click", () => renderChart("stock", sym, sym));
-          container.appendChild(card);
-        });
-      } catch (e) { /* stock card fetch failed silently, crypto still shows */ }
-    } else {
+    container.innerHTML = "";
+    if (!items.length) {
+      container.innerHTML = `<div class="feed-empty">Your watchlist is empty — add a symbol below.</div>`;
+    }
+
+    const currency = getCurrency().toLowerCase();
+    const cryptoItems = items.filter(i => i.asset_type === "crypto");
+    const stockItems = items.filter(i => i.asset_type === "stock");
+
+    function makeCard(item, priceHtml, changeVal) {
       const card = document.createElement("div");
       card.className = "market-card";
-      card.innerHTML = `<div class="m-name">STOCKS</div><div class="feed-empty" style="padding:8px 0;">Add a free Twelve Data key in <code>market-config.js</code> to see live stock prices.</div>`;
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div class="m-name">${item.label || item.symbol}</div>
+          <span class="watchlist-remove" data-id="${item.id}" style="color:var(--ivory-dim); cursor:pointer; font-size:14px; line-height:1;">✕</span>
+        </div>
+        <div class="m-price">${priceHtml}</div>
+        <div class="m-change ${changeVal >= 0 ? "up" : "down"}">${changeVal != null ? (changeVal >= 0 ? "▲" : "▼") + Math.abs(changeVal).toFixed(2) + "%" : ""}</div>`;
+      card.querySelector(".watchlist-remove").addEventListener("click", async (e) => {
+        e.stopPropagation();
+        await ThroneSync.removeWatchlistItem(item.id);
+      });
+      card.addEventListener("click", () => openHoldingDetail(item.asset_type, item.symbol, item.label || item.symbol));
       container.appendChild(card);
     }
+
+    if (cryptoItems.length) {
+      try {
+        const prices = await ThroneMarkets.getCryptoPrices(cryptoItems.map(i => i.symbol), currency);
+        cryptoItems.forEach(item => {
+          const p = prices[item.symbol];
+          makeCard(item, p ? fmtUsd(p[currency]) : "—", p ? p[`${currency}_24h_change`] : null);
+        });
+      } catch (e) {
+        container.innerHTML += `<div class="feed-empty">Couldn't reach CoinGecko right now.</div>`;
+      }
+    }
+
+    if (stockItems.length) {
+      if (ThroneMarkets.hasStockKey()) {
+        try {
+          const stockPrices = await ThroneMarkets.getStockPrices(stockItems.map(i => i.symbol));
+          stockItems.forEach(item => {
+            const q = stockPrices[item.symbol];
+            makeCard(item, q ? fmtUsd(parseFloat(q.close)) : "—", q ? parseFloat(q.percent_change) : null);
+          });
+        } catch (e) { /* stock cards failed silently, crypto still shows */ }
+      } else {
+        const card = document.createElement("div");
+        card.className = "market-card";
+        card.innerHTML = `<div class="m-name">STOCKS</div><div class="feed-empty" style="padding:8px 0;">Add a free Twelve Data key in <code>market-config.js</code> to see live stock prices.</div>`;
+        container.appendChild(card);
+      }
+    }
+  }
+
+  async function bootWatchlist() {
+    await renderWatchlist();
+    ThroneSync.subscribeWatchlist(renderWatchlist);
+
+    document.getElementById("watchlist-add-btn").addEventListener("click", async () => {
+      const type = document.getElementById("watchlist-type-select").value;
+      const symbol = document.getElementById("watchlist-symbol-input").value.trim().toLowerCase();
+      const label = document.getElementById("watchlist-label-input").value.trim();
+      if (!symbol) return;
+      document.getElementById("watchlist-symbol-input").value = "";
+      document.getElementById("watchlist-label-input").value = "";
+      await ThroneSync.addWatchlistItem(type, type === "stock" ? symbol.toUpperCase() : symbol, label || symbol.toUpperCase());
+    });
   }
 
   let portfolioChart = null;
@@ -876,9 +972,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const cryptoIds = holdings.filter(h => h.asset_type === "crypto").map(h => h.symbol);
     const stockSyms = holdings.filter(h => h.asset_type === "stock").map(h => h.symbol);
+    const currency = getCurrency().toLowerCase();
 
     let cryptoPrices = {}, stockPrices = {};
-    try { cryptoPrices = await ThroneMarkets.getCryptoPrices(cryptoIds); } catch (e) {}
+    try { cryptoPrices = await ThroneMarkets.getCryptoPrices(cryptoIds, currency); } catch (e) {}
     if (ThroneMarkets.hasStockKey()) {
       try { stockPrices = await ThroneMarkets.getStockPrices(stockSyms); } catch (e) {}
     }
@@ -886,12 +983,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     let total = 0;
     listEl.innerHTML = holdings.map(h => {
       let price = null;
-      if (h.asset_type === "crypto" && cryptoPrices[h.symbol]) price = cryptoPrices[h.symbol].usd;
+      if (h.asset_type === "crypto" && cryptoPrices[h.symbol]) price = cryptoPrices[h.symbol][currency];
       if (h.asset_type === "stock" && stockPrices[h.symbol]) price = parseFloat(stockPrices[h.symbol].close);
       const value = price != null ? price * h.quantity : null;
       if (value != null) total += value;
       return `
-        <div class="holding-row" data-type="${h.asset_type}" data-symbol="${h.symbol}" data-label="${h.label || h.symbol}">
+        <div class="holding-row" data-id="${h.id}" data-type="${h.asset_type}" data-symbol="${h.symbol}" data-label="${h.label || h.symbol}" data-quantity="${h.quantity}" data-avg="${h.avg_price || ""}">
           <div class="h-name">${h.label || h.symbol} <span style="color:var(--ivory-dim); font-size:12px;">× ${h.quantity}</span></div>
           <div class="h-val">${value != null ? fmtUsd(value) : (h.asset_type === "stock" ? "needs API key" : "—")}</div>
         </div>`;
@@ -902,12 +999,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     refreshNetWorth();
 
     listEl.querySelectorAll(".holding-row").forEach(row => {
-      row.addEventListener("click", () => renderChart(row.dataset.type, row.dataset.symbol, row.dataset.label));
+      row.addEventListener("click", () => openHoldingDetail(row.dataset.type, row.dataset.symbol, row.dataset.label, {
+        id: row.dataset.id, quantity: parseFloat(row.dataset.quantity), avgPrice: row.dataset.avg ? parseFloat(row.dataset.avg) : null
+      }));
     });
   }
 
   async function bootMarkets() {
-    await renderWatchlist();
+    await bootWatchlist();
 
     const statusEl = document.getElementById("portfolio-sync-status");
     async function refreshPortfolio() {
@@ -926,13 +1025,41 @@ document.addEventListener("DOMContentLoaded", async () => {
       const symbol = document.getElementById("holding-symbol-input").value.trim().toLowerCase();
       const label = document.getElementById("holding-label-input").value.trim();
       const qty = parseFloat(document.getElementById("holding-qty-input").value);
+      const avg = parseFloat(document.getElementById("holding-avg-input").value);
       if (!symbol || isNaN(qty)) return;
       document.getElementById("holding-symbol-input").value = "";
       document.getElementById("holding-label-input").value = "";
       document.getElementById("holding-qty-input").value = "";
-      await ThroneSync.addHolding(type, type === "stock" ? symbol.toUpperCase() : symbol, label, qty);
+      document.getElementById("holding-avg-input").value = "";
+      await ThroneSync.addHolding(type, type === "stock" ? symbol.toUpperCase() : symbol, label, qty, isNaN(avg) ? null : avg);
       statusEl.textContent = "Added.";
     });
+  }
+
+  // ---------- DASHBOARD CORE STATS (Tasks Cleared, Goals in Motion, Vault Messages) ----------
+  async function refreshDashboardCoreStats() {
+    try {
+      const [tasks, goals, unread] = await Promise.all([
+        ThroneSync.loadTasks(), ThroneSync.loadGoals(), ThroneSync.loadUnreadMessageCount()
+      ]);
+
+      const doneCount = tasks.filter(t => t.done).length;
+      document.getElementById("dash-tasks-value").innerHTML = `${doneCount} <small>/ ${tasks.length}</small>`;
+      document.getElementById("dash-tasks-delta").textContent = tasks.length
+        ? (doneCount === tasks.length ? "All clear" : `${tasks.length - doneCount} remaining`)
+        : "Nothing queued";
+
+      const inMotion = goals.filter(g => g.progress_pct < 100).length;
+      document.getElementById("dash-goals-value").textContent = inMotion;
+      document.getElementById("dash-goals-delta").textContent = goals.length
+        ? `${goals.filter(g => g.progress_pct === 100).length} completed`
+        : "No goals yet";
+
+      document.getElementById("dash-vault-value").textContent = unread > 0 ? `${unread} new` : "0";
+      const vaultDeltaEl = document.getElementById("dash-vault-delta");
+      vaultDeltaEl.textContent = unread > 0 ? `${unread} unread` : "All read";
+      vaultDeltaEl.className = "delta" + (unread > 0 ? " down" : "");
+    } catch (e) { /* dashboard tiles just stay at their last known values */ }
   }
 
   // ---------- DASHBOARD MOMENTUM (real data, not placeholders) ----------
@@ -1317,6 +1444,132 @@ document.addEventListener("DOMContentLoaded", async () => {
       document.getElementById("savings-target-input").value = "";
       document.getElementById("savings-date-input").value = "";
       await ThroneSync.addSavingsGoal(label, target, date);
+    });
+  }
+
+  let hdChart = null;
+  let hdCurrentContext = null; // { assetType, symbol, label, holding }
+
+  async function openHoldingDetail(assetType, symbol, label, holding) {
+    hdCurrentContext = { assetType, symbol, label, holding: holding || null };
+    document.getElementById("hd-label").textContent = label;
+    document.getElementById("hd-symbol").textContent = `${assetType.toUpperCase()} · ${symbol}`;
+    document.getElementById("hd-price").textContent = "—";
+    document.getElementById("hd-change").textContent = "";
+    document.getElementById("holding-detail-overlay").classList.add("show");
+
+    const currency = getCurrency().toLowerCase();
+    let currentPrice = null, changePct = null;
+
+    try {
+      if (assetType === "crypto") {
+        const prices = await ThroneMarkets.getCryptoPrices([symbol], currency);
+        const p = prices[symbol];
+        if (p) { currentPrice = p[currency]; changePct = p[`${currency}_24h_change`]; }
+      } else if (ThroneMarkets.hasStockKey()) {
+        const prices = await ThroneMarkets.getStockPrices([symbol]);
+        const q = prices[symbol];
+        if (q) { currentPrice = parseFloat(q.close); changePct = parseFloat(q.percent_change); }
+      }
+    } catch (e) { /* leave as — */ }
+
+    document.getElementById("hd-price").textContent = currentPrice != null ? fmtUsd(currentPrice) : "—";
+    const changeEl = document.getElementById("hd-change");
+    if (changePct != null) {
+      changeEl.textContent = (changePct >= 0 ? "▲" : "▼") + Math.abs(changePct).toFixed(2) + "%";
+      changeEl.className = "m-change " + (changePct >= 0 ? "up" : "down");
+    } else {
+      changeEl.textContent = "";
+    }
+
+    // chart
+    let points = [];
+    try {
+      points = assetType === "crypto"
+        ? await ThroneMarkets.getCryptoChart(symbol, 30, currency)
+        : await ThroneMarkets.getStockChart(symbol);
+    } catch (e) { points = []; }
+    if (hdChart) hdChart.destroy();
+    hdChart = new Chart(document.getElementById("hd-chart"), {
+      type: "line",
+      data: {
+        labels: points.map(p => new Date(p.t).toLocaleDateString(undefined, { month: "short", day: "numeric" })),
+        datasets: [{
+          data: points.map(p => p.y), borderColor: "#c9a84c", backgroundColor: "rgba(201,168,76,0.08)",
+          fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true, plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: "#a9a290", maxTicksLimit: 6 }, grid: { color: "#2a251c" } },
+          y: { ticks: { color: "#a9a290" }, grid: { color: "#2a251c" } }
+        }
+      }
+    });
+
+    // portfolio vs. add sections
+    if (holding) {
+      document.getElementById("hd-portfolio-section").style.display = "block";
+      document.getElementById("hd-add-section").style.display = "none";
+      document.getElementById("hd-qty").textContent = holding.quantity;
+      const value = currentPrice != null ? currentPrice * holding.quantity : null;
+      document.getElementById("hd-value").textContent = value != null ? fmtUsd(value) : "—";
+      document.getElementById("hd-avg").textContent = holding.avgPrice != null ? fmtUsd(holding.avgPrice) : "Not set";
+      const pnlEl = document.getElementById("hd-pnl");
+      if (holding.avgPrice != null && currentPrice != null) {
+        const pnl = (currentPrice - holding.avgPrice) * holding.quantity;
+        const pnlPct = ((currentPrice - holding.avgPrice) / holding.avgPrice) * 100;
+        pnlEl.textContent = `${pnl >= 0 ? "+" : ""}${fmtUsd(pnl)} (${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(1)}%)`;
+        pnlEl.style.color = pnl >= 0 ? "#7ba885" : "#c98c7f";
+      } else {
+        pnlEl.textContent = "Add an avg. price to track";
+        pnlEl.style.color = "var(--ivory-dim)";
+      }
+      document.getElementById("hd-edit-qty").value = holding.quantity;
+      document.getElementById("hd-edit-avg").value = holding.avgPrice || "";
+    } else {
+      document.getElementById("hd-portfolio-section").style.display = "none";
+      document.getElementById("hd-add-section").style.display = "block";
+    }
+  }
+
+  function closeHoldingDetail() {
+    document.getElementById("holding-detail-overlay").classList.remove("show");
+    hdCurrentContext = null;
+  }
+
+  function bootHoldingDetailModal() {
+    document.getElementById("hd-close").addEventListener("click", closeHoldingDetail);
+    document.getElementById("holding-detail-overlay").addEventListener("click", (e) => {
+      if (e.target.id === "holding-detail-overlay") closeHoldingDetail();
+    });
+
+    document.getElementById("hd-save-btn").addEventListener("click", async () => {
+      if (!hdCurrentContext?.holding) return;
+      const qty = parseFloat(document.getElementById("hd-edit-qty").value);
+      const avg = parseFloat(document.getElementById("hd-edit-avg").value);
+      if (isNaN(qty)) return;
+      await ThroneSync.updateHolding(hdCurrentContext.holding.id, qty, isNaN(avg) ? null : avg);
+      closeHoldingDetail();
+    });
+
+    document.getElementById("hd-remove-btn").addEventListener("click", async () => {
+      if (!hdCurrentContext?.holding) return;
+      if (confirm("Remove this holding from your portfolio?")) {
+        await ThroneSync.removeHolding(hdCurrentContext.holding.id);
+        closeHoldingDetail();
+      }
+    });
+
+    document.getElementById("hd-add-btn").addEventListener("click", async () => {
+      if (!hdCurrentContext) return;
+      const qty = parseFloat(document.getElementById("hd-add-qty").value);
+      const avg = parseFloat(document.getElementById("hd-add-avg").value);
+      if (isNaN(qty)) return;
+      const { assetType, symbol, label } = hdCurrentContext;
+      await ThroneSync.addHolding(assetType, symbol, label, qty, isNaN(avg) ? null : avg);
+      closeHoldingDetail();
     });
   }
 
@@ -1893,6 +2146,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  function bootCurrencySetting() {
+    const select = document.getElementById("settings-currency-select");
+    select.value = getCurrency();
+    select.addEventListener("change", async () => {
+      setCurrency(select.value);
+      // refresh anything currently showing prices so the change is visible immediately
+      renderWatchlist();
+      try {
+        const holdings = await ThroneSync.loadPortfolio();
+        renderPortfolio(holdings);
+      } catch (e) { /* portfolio will pick up new currency on next natural refresh regardless */ }
+    });
+  }
+
   // ---------- VAULT ----------
   const vaultThreads = {}; // threadId -> { otherProfile }
   let activeThreadId = null;
@@ -1944,11 +2211,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const messages = await ThroneSync.loadThreadMessages(threadId, t.otherProfile.public_key);
     renderMessages(messages);
+    await ThroneSync.markThreadMessagesRead(threadId);
+    refreshDashboardCoreStats();
 
     if (activeThreadSub) supabaseClient.removeChannel(activeThreadSub);
     activeThreadSub = ThroneSync.subscribeThreadMessages(threadId, async () => {
       const fresh = await ThroneSync.loadThreadMessages(threadId, t.otherProfile.public_key);
       renderMessages(fresh);
+      await ThroneSync.markThreadMessagesRead(threadId);
+      refreshDashboardCoreStats();
     });
   }
 

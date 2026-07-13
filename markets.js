@@ -10,16 +10,16 @@ const ThroneMarkets = (() => {
   const TWELVEDATA = "https://api.twelvedata.com";
 
   // ---------- crypto ----------
-  async function getCryptoPrices(ids) {
+  async function getCryptoPrices(ids, currency = "usd") {
     if (!ids.length) return {};
-    const url = `${COINGECKO}/simple/price?ids=${ids.join(",")}&vs_currencies=usd&include_24hr_change=true`;
+    const url = `${COINGECKO}/simple/price?ids=${ids.join(",")}&vs_currencies=${currency}&include_24hr_change=true`;
     const res = await fetch(url);
     if (!res.ok) throw new Error("CoinGecko request failed");
-    return res.json(); // { bitcoin: { usd: 67000, usd_24h_change: 2.1 }, ... }
+    return res.json(); // { bitcoin: { usd: 67000, usd_24h_change: 2.1 }, ... } — key matches currency param
   }
 
-  async function getCryptoChart(id, days = 7) {
-    const url = `${COINGECKO}/coins/${id}/market_chart?vs_currency=usd&days=${days}`;
+  async function getCryptoChart(id, days = 7, currency = "usd") {
+    const url = `${COINGECKO}/coins/${id}/market_chart?vs_currency=${currency}&days=${days}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error("CoinGecko chart request failed");
     const data = await res.json();

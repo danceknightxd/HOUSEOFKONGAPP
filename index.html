@@ -428,6 +428,19 @@
   .savings-card{ grid-column:span 4; padding:18px; border:1px solid var(--hairline); border-radius:12px; }
   .savings-card h4{ font-family:'Cormorant Garamond',serif; font-weight:600; font-size:17px; color:var(--ivory); margin-bottom:8px; }
   @media (max-width: 900px){ .savings-card{ grid-column:span 12; } }
+
+  /* ---------- holding detail modal ---------- */
+  #holding-detail-overlay{
+    position:fixed; inset:0; z-index:2500; background:rgba(0,0,0,0.85);
+    display:none; align-items:center; justify-content:center; padding:20px;
+  }
+  #holding-detail-overlay.show{ display:flex; }
+  .holding-detail-box{
+    width:100%; max-width:520px; max-height:90vh; overflow-y:auto;
+    background:linear-gradient(180deg, var(--panel), var(--panel-2));
+    border:1px solid var(--hairline); border-radius:16px; padding:26px;
+  }
+  .watchlist-remove:hover{ color:#c98c7f; }
   #settings-new-pass, #settings-new-pass-confirm, #settings-display-name{
     width:100%; background:var(--panel-2); border:1px solid var(--hairline); border-radius:10px;
     padding:11px 14px; color:var(--ivory); font-family:'Cormorant Garamond',serif; font-size:15px;
@@ -585,8 +598,8 @@
       <div class="top-right">
         <div class="vault-pill"><span class="pulse"></span> VAULT SECURE</div>
         <div class="clockbox">
-          <div class="time mono" id="clock">06:41 PM</div>
-          <div class="date mono">TUE · JUL 07</div>
+          <div class="time mono" id="clock">—</div>
+          <div class="date mono" id="clock-date">—</div>
         </div>
       </div>
     </div>
@@ -605,18 +618,18 @@
         </div>
         <div class="stat panel">
           <div class="k">Tasks Cleared</div>
-          <div class="v">6 <small>/ 9</small></div>
-          <div class="delta">On pace</div>
+          <div class="v" id="dash-tasks-value">— <small>/ —</small></div>
+          <div class="delta" id="dash-tasks-delta"></div>
         </div>
         <div class="stat panel">
           <div class="k">Goals in Motion</div>
-          <div class="v">4</div>
-          <div class="delta">1 nearing deadline</div>
+          <div class="v" id="dash-goals-value">—</div>
+          <div class="delta" id="dash-goals-delta"></div>
         </div>
         <div class="stat panel">
           <div class="k">Vault Messages</div>
-          <div class="v">3</div>
-          <div class="delta down">2 unread</div>
+          <div class="v" id="dash-vault-value">—</div>
+          <div class="delta" id="dash-vault-delta"></div>
         </div>
       </div>
 
@@ -842,7 +855,16 @@
       <div class="treasury-panel" id="treasury-invest">
 
       <div class="panel-head" style="margin-bottom:12px;"><h3>Watchlist</h3></div>
-      <div class="grid" id="watchlist-cards" style="margin-bottom:26px;"></div>
+      <div class="grid" id="watchlist-cards" style="margin-bottom:14px;"></div>
+      <div class="add-row" style="max-width:600px; margin-bottom:26px;">
+        <select id="watchlist-type-select" style="background:var(--panel-2); border:1px solid var(--hairline); border-radius:10px; padding:10px 14px; color:var(--ivory); font-family:'Cormorant Garamond',serif; font-size:14px;">
+          <option value="crypto">Crypto</option>
+          <option value="stock">Stock</option>
+        </select>
+        <input type="text" id="watchlist-symbol-input" placeholder="Symbol / CoinGecko id...">
+        <input type="text" id="watchlist-label-input" placeholder="Display name (optional)">
+        <button id="watchlist-add-btn">Add</button>
+      </div>
 
       <div class="grid">
         <div class="c7 panel">
@@ -866,6 +888,7 @@
           </div>
           <div class="add-row">
             <input type="number" id="holding-qty-input" placeholder="Quantity" step="0.0001">
+            <input type="number" id="holding-avg-input" placeholder="Avg price paid (optional)" step="0.01">
             <button id="holding-add-btn">Add</button>
           </div>
           <div class="sync-status" id="portfolio-sync-status"></div>
@@ -1180,6 +1203,21 @@
         </div>
 
         <div class="c6 panel">
+          <div class="panel-head"><h3>Display Currency</h3></div>
+          <div class="goal-meta" style="margin-bottom:14px;">Crypto prices convert live to this currency. Stocks show in their exchange's native currency. Manually entered dollar amounts (budgets, net worth) just relabel, since they were typed in whatever currency you meant.</div>
+          <select id="settings-currency-select" style="width:100%; background:var(--panel-2); border:1px solid var(--hairline); border-radius:10px; padding:10px 14px; color:var(--ivory); font-family:'Cormorant Garamond',serif; font-size:15px;">
+            <option value="USD">USD — US Dollar</option>
+            <option value="AUD">AUD — Australian Dollar</option>
+            <option value="GBP">GBP — British Pound</option>
+            <option value="EUR">EUR — Euro</option>
+            <option value="CAD">CAD — Canadian Dollar</option>
+            <option value="NZD">NZD — New Zealand Dollar</option>
+            <option value="JPY">JPY — Japanese Yen</option>
+            <option value="INR">INR — Indian Rupee</option>
+          </select>
+        </div>
+
+        <div class="c6 panel">
           <div class="panel-head"><h3>Notifications</h3></div>
           <div class="goal-meta" style="margin-bottom:14px;">Real push notifications — alliance requests reach you even when The Throne isn't open, Messenger-style.</div>
           <button id="settings-push-btn" style="width:100%; padding:11px; border-radius:10px; border:1px solid var(--gold-dim); background:transparent; color:var(--gold-bright); font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.08em; cursor:pointer; text-transform:uppercase;">Enable Notifications</button>
@@ -1276,6 +1314,52 @@
   </nav>
 </div>
 
+<div id="holding-detail-overlay">
+  <div class="holding-detail-box">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px;">
+      <div>
+        <div id="hd-label" style="font-family:'Cinzel',serif; font-size:22px; color:var(--ivory);">—</div>
+        <div id="hd-symbol" style="font-family:'Space Mono',monospace; font-size:11px; color:var(--ivory-dim); text-transform:uppercase;">—</div>
+      </div>
+      <div id="hd-close" style="cursor:pointer; color:var(--ivory-dim); font-size:22px; line-height:1;">✕</div>
+    </div>
+
+    <div style="display:flex; align-items:baseline; gap:14px; margin-bottom:20px;">
+      <div id="hd-price" style="font-family:'Bebas Neue',sans-serif; font-size:38px; color:var(--ivory);">—</div>
+      <div id="hd-change" class="m-change">—</div>
+    </div>
+
+    <canvas id="hd-chart" height="180" style="margin-bottom:20px;"></canvas>
+
+    <div id="hd-portfolio-section" style="display:none;">
+      <div class="divider"></div>
+      <div class="grid" style="margin-bottom:16px;">
+        <div class="realm-stat panel" style="grid-column:span 6;"><div class="rk">Quantity</div><div class="rv" id="hd-qty" style="font-size:22px;">—</div></div>
+        <div class="realm-stat panel" style="grid-column:span 6;"><div class="rk">Market Value</div><div class="rv" id="hd-value" style="font-size:22px;">—</div></div>
+        <div class="realm-stat panel" style="grid-column:span 6;"><div class="rk">Avg. Price Paid</div><div class="rv" id="hd-avg" style="font-size:18px;">—</div></div>
+        <div class="realm-stat panel" style="grid-column:span 6;"><div class="rk">Unrealised P&amp;L</div><div class="rv" id="hd-pnl" style="font-size:18px;">—</div></div>
+      </div>
+
+      <div class="add-row" style="margin-top:0;">
+        <input type="number" id="hd-edit-qty" placeholder="New quantity" step="0.0001">
+        <input type="number" id="hd-edit-avg" placeholder="Avg price paid (optional)" step="0.01">
+        <button id="hd-save-btn">Save</button>
+      </div>
+      <button id="hd-remove-btn" style="width:100%; margin-top:10px; padding:10px; border-radius:10px; border:1px solid #4a2b26; background:transparent; color:#c98c7f; font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.08em; cursor:pointer; text-transform:uppercase;">Remove Holding</button>
+    </div>
+
+    <div id="hd-add-section" style="display:none;">
+      <div class="divider"></div>
+      <div class="goal-meta" style="margin-bottom:10px;">Not in your portfolio yet.</div>
+      <div class="add-row" style="margin-top:0;">
+        <input type="number" id="hd-add-qty" placeholder="Quantity" step="0.0001">
+        <input type="number" id="hd-add-avg" placeholder="Avg price paid (optional)" step="0.01">
+        <button id="hd-add-btn">Add to Portfolio</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="call-overlay">
   <video class="call-remote-video" id="call-remote-video" autoplay playsinline></video>
   <video class="call-local-video" id="call-local-video" autoplay playsinline muted></video>
@@ -1321,7 +1405,8 @@
     });
   });
 
-  // live clock
+  // live clock — uses the device's own local time, which naturally
+  // matches whatever country/timezone the person is actually in
   function tick(){
     const d = new Date();
     let h = d.getHours(); const m = d.getMinutes();
@@ -1329,6 +1414,11 @@
     h = h % 12; if(h===0) h = 12;
     document.getElementById('clock').textContent =
       String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ' ' + ampm;
+
+    const days = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+    const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+    document.getElementById('clock-date').textContent =
+      days[d.getDay()] + ' · ' + months[d.getMonth()] + ' ' + String(d.getDate()).padStart(2,'0');
   }
   tick(); setInterval(tick, 1000*30);
 

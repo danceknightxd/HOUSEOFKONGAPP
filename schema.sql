@@ -196,6 +196,7 @@ create table vault_messages (
   sender_id uuid references auth.users on delete cascade not null,
   ciphertext text not null,       -- base64 AES-GCM ciphertext
   iv text not null,               -- base64 initialization vector
+  read_at timestamptz,            -- null until the recipient opens the thread
   created_at timestamptz default now()
 );
 
@@ -405,6 +406,28 @@ alter publication supabase_realtime add table investment_plans;
 
 -- ---------- FI tracking ----------
 alter table profiles add column if not exists fi_annual_expenses numeric;
+
+
+-- ---------- watchlist_items ----------
+-- User-editable watchlist, same spirit as custom news topics — no more
+-- hardcoded config file, add/remove directly in the app.
+create table watchlist_items (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users on delete cascade not null,
+  asset_type text not null check (asset_type in ('crypto','stock')),
+  symbol text not null,
+  label text,
+  created_at timestamptz default now()
+);
+alter table watchlist_items enable row level security;
+create policy "Users manage their own watchlist"
+  on watchlist_items for all
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+alter publication supabase_realtime add table watchlist_items;
+
+alter table portfolio_holdings add column if not exists avg_price numeric;
+
+alter table tasks add column if not exists completed_at timestamptz;
 
 
 -- ---------- budget_envelopes (Goodbudget-style, manual — no bank link needed) ----------
