@@ -8,7 +8,7 @@
    ============================================================ */
 
 const SPOTIFY_CONFIG = {
-  clientId: "YOUR-SPOTIFY-CLIENT-ID",
+  clientId: "4257deb0fae44d388b7675b5a4e5f41e",
   redirectUri: window.location.origin + window.location.pathname,
   scopes: "user-read-currently-playing user-read-recently-played user-read-playback-state"
 };
