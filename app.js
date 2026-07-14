@@ -2048,7 +2048,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           <div class="ex-stat"><div class="k">Items</div><div class="v">—</div></div>
           <div class="ex-stat"><div class="k">Owners</div><div class="v">—</div></div>
         </div>
-        <a href="https://opensea.io/collection/${c.slug}" target="_blank" rel="noopener">View on OpenSea</a>
+        <a href="https://opensea.io/${c.slug}" target="_blank" rel="noopener">View on OpenSea</a>
       </div>`).join("");
 
     for (const c of KINGS_CONFIG.exhibitions.collections) {
