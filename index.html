@@ -73,12 +73,17 @@
   .seal{
     width:42px; height:42px; margin-bottom:34px; position:relative;
     display:flex; align-items:center; justify-content:center;
-    cursor:pointer;
+    cursor:pointer; animation:kingdomHover 3.4s ease-in-out infinite;
   }
-  .seal svg{ width:100%; height:100%; }
+  .seal svg{ width:100%; height:100%; position:absolute; inset:0; pointer-events:none; }
   .seal .ring{ transform-origin:center; animation:spin 40s linear infinite; }
   @keyframes spin{ to{ transform:rotate(360deg); } }
   .seal .ring2{ transform-origin:center; animation:spin 60s linear infinite reverse; }
+  .seal model-viewer{
+    position:relative; width:68%; height:68%; background:transparent;
+    --poster-color:transparent; cursor:grab;
+  }
+  .seal model-viewer:active{ cursor:grabbing; }
 
   .rail-nav{ display:flex; flex-direction:column; gap:6px; flex:1; }
   .rail-btn{
@@ -559,12 +564,15 @@
   <!-- ============ SIDE RAIL ============ -->
   <nav class="rail">
     <div class="seal" title="The Throne">
-      <svg viewBox="0 0 48 48">
+      <svg class="seal-rings" viewBox="0 0 48 48">
         <circle class="ring" cx="24" cy="24" r="21" fill="none" stroke="#c9a84c" stroke-width="0.8" stroke-dasharray="2 4"/>
         <circle class="ring2" cx="24" cy="24" r="16" fill="none" stroke="#8a7136" stroke-width="0.7" stroke-dasharray="1 3"/>
-        <circle cx="24" cy="24" r="10.5" fill="#0a0a0a" stroke="#c9a84c" stroke-width="1"/>
-        <text x="24" y="28.5" text-anchor="middle" font-family="Cinzel, serif" font-size="10" fill="#e8c766">T</text>
       </svg>
+      <model-viewer id="throne-seal-model" alt="The Throne"
+        auto-rotate auto-rotate-delay="0" rotation-per-second="18deg"
+        camera-controls disable-zoom disable-pan interaction-prompt="none"
+        shadow-intensity="0" exposure="1" loading="eager">
+      </model-viewer>
     </div>
     <div class="rail-nav">
       <div class="rail-btn active" data-view="dashboard"><span class="dot"></span>

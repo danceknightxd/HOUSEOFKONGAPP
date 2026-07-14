@@ -6,6 +6,10 @@
 
 const THRONE_CONFIG = {
 
+  // ---- App brand seal (side rail, every view) ----
+  // 6.33MB — comfortably under jsDelivr's 20MB GitHub-CDN file limit.
+  throneSealModelUrl: "https://cdn.jsdelivr.net/gh/danceknightxd/chimpart@main/compressed-Meshy_AI_Emperor_of_the_Flame_0527115808_texture.glb",
+
   // ---- House of Kong network (Blogger label feeds, JSONP) ----
   // These populate "The Circle" cross-post queue + can feed the
   // dashboard briefing if you want your own posts mixed in.
@@ -83,7 +87,10 @@ const THRONE_CONFIG = {
       accent: "#3f8f6a",
       accentBright: "#5cbf8f",
       url: "https://chimpmagnettrillionaireclub.blogspot.com/feeds/posts/default?alt=json-in-script&max-results=12",
-      modelUrl: "https://cdn.jsdelivr.net/gh/danceknightxd/chimpart@main/Meshy_AI_Chimp_Magnet_Trillio_0527115757_texture.glb",
+      // NOTE: this file is 23.6MB — over jsDelivr's GitHub-CDN 20MB cap,
+      // which is why it was loading empty. raw.githubusercontent.com has
+      // no such limit (and still sends the CORS header model-viewer needs).
+      modelUrl: "https://raw.githubusercontent.com/danceknightxd/chimpart/main/Meshy_AI_Chimp_Magnet_Trillio_0527115757_texture.glb",
       inviteUrl: "https://chimptrillionaireclub.blogspot.com/?zx=910e11d28e2e5c78",
       inviteLabel: "Join The Gallery Kingdom"
     }

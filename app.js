@@ -17,6 +17,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Handle the redirect back from Spotify's auth page, if that's why we're here.
   await ThroneSpotify.handleRedirect();
 
+  // ---------- brand seal (side rail, every view) ----------
+  const throneSealModel = document.getElementById("throne-seal-model");
+  if (throneSealModel && THRONE_CONFIG.throneSealModelUrl) {
+    throneSealModel.src = THRONE_CONFIG.throneSealModelUrl;
+  }
+
   const activeTopics = new Set(THRONE_CONFIG.topics.filter(t => t.enabled).map(t => t.name));
 
   // ---------- build topic chips from config ----------
