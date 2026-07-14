@@ -141,7 +141,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     refreshDashboardCoreStats();
     bootNetWorth();
     bootFI();
-    bootPlans();
     bootTreasuryTabs();
     bootEnvelopes();
     bootBills();
@@ -1186,70 +1185,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       fiAnnualExpenses = val;
       await ThroneSync.updateFiExpenses(val);
       renderFI();
-    });
-  }
-
-  // ---------- AUTOINVEST PLANS ----------
-  function daysUntil(dateStr) {
-    const today = new Date(); today.setHours(0,0,0,0);
-    const due = new Date(dateStr + "T00:00:00");
-    return Math.round((due - today) / 86400000);
-  }
-
-  async function renderPlans() {
-    const listEl = document.getElementById("plans-list");
-    try {
-      const plans = await ThroneSync.loadInvestmentPlans();
-      if (!plans.length) {
-        listEl.innerHTML = `<div class="feed-empty">No plans yet.</div>`;
-        return;
-      }
-      listEl.innerHTML = plans.map(p => {
-        const days = daysUntil(p.next_due);
-        const dueLabel = days < 0 ? "OVERDUE" : days === 0 ? "DUE TODAY" : `in ${days}d`;
-        return `
-        <div class="holding-row" data-id="${p.id}" style="flex-direction:column; align-items:stretch; gap:6px;">
-          <div style="display:flex; justify-content:space-between;">
-            <div class="h-name">${p.label}</div>
-            <div class="h-val" style="color:${days <= 0 ? "var(--gold-bright)" : "var(--ivory-dim)"};">${dueLabel}</div>
-          </div>
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div class="h-val">$${p.amount} / ${p.frequency}${p.holding ? " → " + (p.holding.label || p.holding.symbol) : ""}</div>
-            <button class="ally-btn log-contribution-btn" data-id="${p.id}" style="margin-left:0;">Log</button>
-          </div>
-        </div>`;
-      }).join("");
-
-      listEl.querySelectorAll(".log-contribution-btn").forEach(btn => {
-        btn.addEventListener("click", async () => {
-          const plan = plans.find(p => p.id === btn.dataset.id);
-          let qty = null;
-          if (plan.holding_id) {
-            const input = prompt(`Quantity of ${plan.holding.label || plan.holding.symbol} purchased this contribution:`, "0");
-            qty = parseFloat(input);
-            if (isNaN(qty)) qty = null;
-          }
-          await ThroneSync.logPlanContribution(plan, qty);
-        });
-      });
-    } catch (e) {
-      listEl.innerHTML = `<div class="feed-empty">Couldn't load plans.</div>`;
-    }
-  }
-
-  async function bootPlans() {
-    await renderPlans();
-    ThroneSync.subscribeInvestmentPlans(renderPlans);
-
-    document.getElementById("plan-add-btn").addEventListener("click", async () => {
-      const label = document.getElementById("plan-label-input").value.trim();
-      const amount = parseFloat(document.getElementById("plan-amount-input").value);
-      const frequency = document.getElementById("plan-frequency-select").value;
-      if (!label || isNaN(amount)) return;
-      document.getElementById("plan-label-input").value = "";
-      document.getElementById("plan-amount-input").value = "";
-      const nextDue = new Date().toISOString().slice(0, 10);
-      await ThroneSync.addInvestmentPlan(label, null, amount, frequency, nextDue);
     });
   }
 

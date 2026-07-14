@@ -327,17 +327,20 @@
   }
   .auth-box button:hover{ background:var(--gold-bright); }
   .auth-box .msg{ margin-top:16px; font-family:'Space Mono',monospace; font-size:11px; color:var(--ivory-dim); line-height:1.6; min-height:14px; }
-  .add-row{ display:flex; gap:10px; margin-top:14px; }
-  .add-row input{
-    flex:1; background:var(--panel-2); border:1px solid var(--hairline); border-radius:10px;
+  .add-row{ display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+  .add-row input, .add-row select{
+    flex:1 1 140px; min-width:0; background:var(--panel-2); border:1px solid var(--hairline); border-radius:10px;
     padding:10px 14px; color:var(--ivory); font-family:'Cormorant Garamond',serif; font-size:15px;
   }
   .add-row input:focus{ outline:none; border-color:var(--gold-dim); }
   .add-row button{
-    padding:0 18px; border-radius:10px; border:1px solid var(--gold-dim); background:transparent;
+    flex-shrink:0; padding:0 18px; border-radius:10px; border:1px solid var(--gold-dim); background:transparent;
     color:var(--gold-bright); font-family:'Space Mono',monospace; font-size:11px; cursor:pointer; text-transform:uppercase;
   }
   .add-row button:hover{ background:rgba(201,168,76,0.08); }
+  @media (max-width:480px){
+    .add-row input, .add-row select, .add-row button{ flex:1 1 100%; }
+  }
   .sync-status{ font-family:'Space Mono',monospace; font-size:10px; color:var(--ivory-dim); margin-top:10px; }
 
   /* ---------- markets ---------- */
@@ -937,7 +940,7 @@
       </div>
 
       <div class="grid" style="margin-top:22px;">
-        <div class="c5 panel">
+        <div class="c6 panel">
           <div class="panel-head"><h3>Net Worth</h3><span class="count mono" id="networth-total">$—</span></div>
           <div class="goal-meta" style="margin-bottom:14px;">Everything, not just the market — the way Pearler's dashboard does it.</div>
           <div id="networth-breakdown"></div>
@@ -957,7 +960,7 @@
           </div>
         </div>
 
-        <div class="c4 panel">
+        <div class="c6 panel">
           <div class="panel-head"><h3>Financial Independence</h3></div>
           <div class="ring-wrap"><svg width="130" height="130" viewBox="0 0 130 130">
             <circle cx="65" cy="65" r="55" fill="none" stroke="#1c1811" stroke-width="9"/>
@@ -971,32 +974,10 @@
           </div>
           <div class="goal-meta" id="fi-detail" style="margin-top:10px;"></div>
         </div>
-
-        <div class="c3 panel">
-          <div class="panel-head"><h3>Autoinvest Plans</h3></div>
-          <div id="plans-list"></div>
-          <div class="divider"></div>
-          <div class="add-row" style="margin-top:0;">
-            <input type="text" id="plan-label-input" placeholder="Plan name">
-          </div>
-          <div class="add-row">
-            <input type="number" id="plan-amount-input" placeholder="$ / cycle" step="1">
-          </div>
-          <select id="plan-frequency-select" style="width:100%; margin-bottom:10px; background:var(--panel-2); border:1px solid var(--hairline); border-radius:10px; padding:8px 12px; color:var(--ivory); font-family:'Space Mono',monospace; font-size:11px;">
-            <option value="weekly">Weekly</option>
-            <option value="fortnightly">Fortnightly</option>
-            <option value="monthly" selected>Monthly</option>
-          </select>
-          <button id="plan-add-btn" style="width:100%; padding:9px; border-radius:9px; border:1px solid var(--gold-dim); background:transparent; color:var(--gold-bright); font-family:'Space Mono',monospace; font-size:10.5px; letter-spacing:.06em; cursor:pointer; text-transform:uppercase;">Add Plan</button>
-        </div>
       </div>
 
       <div class="footnote">
         <span class="gk">// ON DATA SOURCES —</span> crypto prices and charts come live from CoinGecko's free public API, no key required. Stock quotes and charts use Twelve Data's free tier, which does require a key (800 requests/day, free) — add yours in <code>market-config.js</code>. This isn't financial advice — it's your own data, displayed.
-      </div>
-
-      <div class="footnote">
-        <span class="gk">// ON AUTOINVEST —</span> this plans and tracks recurring contributions — it does not execute real trades or move real money. Doing that safely needs a licensed broker integration, which is a different (and heavily regulated) kind of project than a self-hosted dashboard. "Log Contribution" updates your own portfolio numbers here; nothing happens outside the app.
       </div>
 
       </div>
