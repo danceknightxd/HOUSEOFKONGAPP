@@ -11,7 +11,7 @@
    ============================================================ */
 
 const MARKET_CONFIG = {
-  twelveDataApiKey: "", // optional — only needed for stock holdings
+  twelveDataApiKey: "CG-MHByXoXAnKuzuNxG3LuwJWJM", // optional — only needed for stock holdings
 
   // A handful of headline tickers shown on the Markets dashboard by
   // default, even before you add a personal portfolio.
