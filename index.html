@@ -11,6 +11,9 @@
 <link rel="apple-touch-icon" href="icon-192-apple.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cinzel:wght@400;600;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<!-- Renders each Kingdom's 3D GLB seal (kingdom-model). Auto-rotates on
+     its own; camera-controls lets the person drag to spin it manually. -->
+<script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
 <style>
   :root{
     --black:#000000;
@@ -371,8 +374,38 @@
   .kingdom-card h4{ font-family:'Cinzel',serif; font-size:16px; letter-spacing:.03em; color:var(--ivory); position:relative; z-index:1; margin-bottom:5px; }
   .kingdom-card .k-tagline{ font-size:13px; color:var(--ivory-dim); font-style:italic; position:relative; z-index:1; line-height:1.4; margin-bottom:12px; }
   .kingdom-card .k-count{ font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.08em; color:var(--k-accent-bright, var(--gold-bright)); text-transform:uppercase; position:relative; z-index:1; }
+
+  /* ---------- kingdom 3D seal (GLB model, replaces the letter seal) ---------- */
+  @keyframes kingdomHover{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-7px); } }
+  .kingdom-model-wrap{
+    width:76px; height:76px; margin-bottom:14px; position:relative; z-index:1;
+    animation:kingdomHover 3.4s ease-in-out infinite;
+    filter:drop-shadow(0 6px 10px rgba(0,0,0,0.45));
+  }
+  .kingdom-model-wrap model-viewer{
+    width:100%; height:100%; background:transparent; --poster-color:transparent;
+    cursor:grab;
+  }
+  .kingdom-model-wrap model-viewer:active{ cursor:grabbing; }
+  .kingdom-invite-link{
+    display:inline-flex; align-items:center; gap:6px; margin-top:2px; margin-bottom:12px;
+    padding:6px 12px; border-radius:20px; position:relative; z-index:1;
+    border:1px solid var(--k-accent, var(--gold-dim)); color:var(--k-accent-bright, var(--gold-bright));
+    font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.07em; text-transform:uppercase;
+    text-decoration:none; transition:background .2s ease, transform .2s ease;
+  }
+  .kingdom-invite-link:hover{ background:rgba(255,255,255,0.06); transform:translateY(-1px); }
+  .kingdom-invite-link::before{ content:'↗'; font-size:11px; }
   .kingdom-filter-row{ display:flex; flex-wrap:wrap; gap:8px; margin:26px 0 18px; }
   .kingdom-filter-row .chip.on{ border-color:var(--k-accent, var(--gold)); color:var(--k-accent-bright, var(--gold-bright)); background:rgba(255,255,255,0.04); }
+  /* King's Gallery header handle — long unbroken @handles were forcing
+     the flex row wider than the panel on narrow screens and spilling
+     past its border. Let it shrink and wrap instead of forcing overflow. */
+  .gallery-handle-row{ min-width:0; }
+  .gallery-handle-row h4{ overflow-wrap:anywhere; word-break:break-word; }
+  @media (max-width:480px){
+    .gallery-handle-row h4{ font-size:15px; }
+  }
   @media (max-width: 900px){ .kingdom-card{ grid-column:span 12; } }
   .realm-stat{ grid-column:span 3; padding:16px; }
   .realm-stat .rk{ font-family:'Space Mono',monospace; font-size:9.5px; letter-spacing:.1em; color:var(--ivory-dim); text-transform:uppercase; }
@@ -1014,7 +1047,7 @@
       <div class="page-sub">All House of Kong social, gathered in one hall.</div>
 
       <div class="grid">
-        <div class="c7">
+        <div class="c12">
           <div class="panel" style="margin-bottom:18px;">
             <div class="panel-head"><h3>Spotify</h3><span class="count mono" id="spotify-status">not connected</span></div>
             <div id="spotify-now-playing"><div class="feed-empty">Connect Spotify to show what's currently playing.</div></div>
@@ -1023,25 +1056,6 @@
 
           <div class="panel-head" style="margin-bottom:12px;"><h3>Your Feed</h3></div>
           <div id="social-post-list"></div>
-        </div>
-        <div class="c5 panel">
-          <div class="panel-head"><h3>Network Feed Status</h3></div>
-          <div id="blogger-feed-status"></div>
-          <div class="divider"></div>
-          <div class="panel-head"><h3>Log a Post</h3></div>
-          <div class="goal-meta" style="margin-bottom:12px;">Instagram posts now live in <b style="color:var(--gold-bright);">King's Gallery</b> — this is for anything else (LXI, cross-posts, etc).</div>
-          <input type="hidden" id="social-platform-select" value="other">
-          <div class="add-row" style="margin-top:0;">
-            <input type="text" id="social-caption-input" placeholder="Caption...">
-          </div>
-          <div class="add-row">
-            <input type="url" id="social-link-input" placeholder="Post link (optional)">
-          </div>
-          <div class="add-row">
-            <input type="url" id="social-image-input" placeholder="Image URL (optional)">
-            <button id="social-post-btn">Log</button>
-          </div>
-          <div class="sync-status" id="social-sync-status"></div>
         </div>
       </div>
 
@@ -1109,8 +1123,8 @@
       <!-- GALLERY -->
       <div class="kwing-panel" id="kwing-gallery">
         <div class="panel" style="margin-bottom:20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap;">
-          <div class="kingdom-seal" style="width:52px; height:52px; font-size:20px; border-color:#c9a84c;">IG</div>
-          <div style="flex:1; min-width:200px;">
+          <div class="kingdom-seal" style="width:52px; height:52px; font-size:20px; border-color:#c9a84c; flex-shrink:0;">IG</div>
+          <div class="gallery-handle-row" style="flex:1 1 200px; min-width:0;">
             <h4 style="font-family:'Cinzel',serif; font-size:17px; color:var(--ivory); margin-bottom:4px;">@chimp_magnettrillionaireclub</h4>
             <div style="font-size:14px; color:var(--ivory-dim); font-style:italic;">Art, visuals, and the trillionaire club — straight from the source.</div>
           </div>

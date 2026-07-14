@@ -78,17 +78,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // ---------- Blogger feed status list (Circle view) ----------
-  const bloggerStatusEl = document.getElementById("blogger-feed-status");
-  const bloggerRows = {};
-  THRONE_CONFIG.bloggerFeeds.forEach(fc => {
-    const row = document.createElement("div");
-    row.className = "feed-status";
-    row.innerHTML = `<span class="fdot"></span><span>${fc.name} — connecting…</span>`;
-    bloggerStatusEl.appendChild(row);
-    bloggerRows[fc.name] = row;
-  });
-
   // ---------- boot news feeds (no auth required) ----------
   ThroneFeeds.loadAll({
     onTopicsUpdated: (results, store) => {
@@ -104,14 +93,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       renderNewsFull();
     },
     onBloggerUpdated: (result, store) => {
-      const row = bloggerRows[result.feed.name];
-      if (row) {
-        row.classList.add(result.ok ? "live" : "error");
-        row.querySelector("span:last-child").textContent =
-          result.ok
-            ? `${result.feed.name} — ${result.entries.length} posts synced`
-            : `${result.feed.name} — feed unreachable (${result.error})`;
-      }
+      // Network Feed Status panel was removed from the Circle view — this
+      // callback still fires per-feed as Blogger posts sync in, so keep
+      // it around to refresh the dashboard, just without a status row to update.
       renderDashboard();
     }
   });
@@ -732,30 +716,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
     await renderSpotify();
 
-    const statusEl = document.getElementById("social-sync-status");
     async function refreshPosts() {
       try {
         const posts = await ThroneSync.loadSocialPosts();
         renderSocialPosts(posts.filter(p => p.platform !== "instagram"));
       } catch (e) {
-        statusEl.textContent = "Couldn't load posts — check Supabase config.";
+        // "Log a Post" panel (and its status line) was removed from the
+        // Circle view — nowhere left to surface a load error inline, so
+        // just leave the feed list empty/stale rather than throw.
       }
     }
     await refreshPosts();
     ThroneSync.subscribeSocialPosts(refreshPosts);
-
-    document.getElementById("social-post-btn").addEventListener("click", async () => {
-      const platform = document.getElementById("social-platform-select").value;
-      const caption = document.getElementById("social-caption-input").value.trim();
-      const link = document.getElementById("social-link-input").value.trim();
-      const image = document.getElementById("social-image-input").value.trim();
-      if (!caption && !link) return;
-      document.getElementById("social-caption-input").value = "";
-      document.getElementById("social-link-input").value = "";
-      document.getElementById("social-image-input").value = "";
-      await ThroneSync.addSocialPost(platform, caption, link || null, image || null);
-      statusEl.textContent = "Posted.";
-    });
   }
 
   // ---------- CUSTOM NEWS TOPICS (user-typed, per-account) ----------
@@ -1721,11 +1693,30 @@ document.addEventListener("DOMContentLoaded", async () => {
     const container = document.getElementById("kingdom-cards");
     container.innerHTML = THRONE_CONFIG.kingdoms.map(k => `
       <div class="kingdom-card c3" data-id="${k.id}" style="--k-accent:${k.accent}; --k-accent-bright:${k.accentBright};">
-        <div class="kingdom-seal">${k.kingdomTitle.charAt(4)}</div>
+        ${k.modelUrl
+          ? `<div class="kingdom-model-wrap" data-no-card-click>
+               <model-viewer
+                 src="${k.modelUrl}"
+                 alt="${k.kingdomTitle} seal"
+                 auto-rotate auto-rotate-delay="0" rotation-per-second="18deg"
+                 camera-controls disable-zoom disable-pan interaction-prompt="none"
+                 shadow-intensity="0" exposure="1" loading="lazy">
+               </model-viewer>
+             </div>`
+          : `<div class="kingdom-seal">${k.kingdomTitle.charAt(4)}</div>`}
         <h4>${k.kingdomTitle}</h4>
         <div class="k-tagline">${k.tagline}</div>
         <div class="k-count" id="kcount-${k.id}">— posts</div>
+        ${k.inviteUrl
+          ? `<a class="kingdom-invite-link" href="${k.inviteUrl}" target="_blank" rel="noopener" data-no-card-click>${k.inviteLabel || "Visit"}</a>`
+          : ""}
       </div>`).join("");
+
+    // The model (drag-to-rotate) and the invite link both need clicks that
+    // don't also toggle the card's kingdom filter underneath them.
+    container.querySelectorAll("[data-no-card-click]").forEach(el => {
+      ["pointerdown", "click"].forEach(evt => el.addEventListener(evt, e => e.stopPropagation()));
+    });
 
     container.querySelectorAll(".kingdom-card").forEach(card => {
       card.addEventListener("click", () => {
