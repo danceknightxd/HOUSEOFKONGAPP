@@ -17,12 +17,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Handle the redirect back from Spotify's auth page, if that's why we're here.
   await ThroneSpotify.handleRedirect();
 
-  // ---------- brand seal (side rail, every view) ----------
-  const throneSealModel = document.getElementById("throne-seal-model");
-  if (throneSealModel && THRONE_CONFIG.throneSealModelUrl) {
-    throneSealModel.src = THRONE_CONFIG.throneSealModelUrl;
-  }
-
   const activeTopics = new Set(THRONE_CONFIG.topics.filter(t => t.enabled).map(t => t.name));
 
   // ---------- build topic chips from config ----------
@@ -99,9 +93,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       renderNewsFull();
     },
     onBloggerUpdated: (result, store) => {
-      // Network Feed Status panel was removed from the Circle view — this
-      // callback still fires per-feed as Blogger posts sync in, so keep
-      // it around to refresh the dashboard, just without a status row to update.
       renderDashboard();
     }
   });
@@ -141,6 +132,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     refreshDashboardCoreStats();
     bootNetWorth();
     bootFI();
+    bootPlans();
     bootTreasuryTabs();
     bootEnvelopes();
     bootBills();
@@ -725,11 +717,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       try {
         const posts = await ThroneSync.loadSocialPosts();
         renderSocialPosts(posts.filter(p => p.platform !== "instagram"));
-      } catch (e) {
-        // "Log a Post" panel (and its status line) was removed from the
-        // Circle view — nowhere left to surface a load error inline, so
-        // just leave the feed list empty/stale rather than throw.
-      }
+      } catch (e) { /* Your Feed just stays empty if this fails */ }
     }
     await refreshPosts();
     ThroneSync.subscribeSocialPosts(refreshPosts);
@@ -1188,6 +1176,70 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  // ---------- AUTOINVEST PLANS ----------
+  function daysUntil(dateStr) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const due = new Date(dateStr + "T00:00:00");
+    return Math.round((due - today) / 86400000);
+  }
+
+  async function renderPlans() {
+    const listEl = document.getElementById("plans-list");
+    try {
+      const plans = await ThroneSync.loadInvestmentPlans();
+      if (!plans.length) {
+        listEl.innerHTML = `<div class="feed-empty">No plans yet.</div>`;
+        return;
+      }
+      listEl.innerHTML = plans.map(p => {
+        const days = daysUntil(p.next_due);
+        const dueLabel = days < 0 ? "OVERDUE" : days === 0 ? "DUE TODAY" : `in ${days}d`;
+        return `
+        <div class="holding-row" data-id="${p.id}" style="flex-direction:column; align-items:stretch; gap:6px;">
+          <div style="display:flex; justify-content:space-between;">
+            <div class="h-name">${p.label}</div>
+            <div class="h-val" style="color:${days <= 0 ? "var(--gold-bright)" : "var(--ivory-dim)"};">${dueLabel}</div>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="h-val">$${p.amount} / ${p.frequency}${p.holding ? " → " + (p.holding.label || p.holding.symbol) : ""}</div>
+            <button class="ally-btn log-contribution-btn" data-id="${p.id}" style="margin-left:0;">Log</button>
+          </div>
+        </div>`;
+      }).join("");
+
+      listEl.querySelectorAll(".log-contribution-btn").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const plan = plans.find(p => p.id === btn.dataset.id);
+          let qty = null;
+          if (plan.holding_id) {
+            const input = prompt(`Quantity of ${plan.holding.label || plan.holding.symbol} purchased this contribution:`, "0");
+            qty = parseFloat(input);
+            if (isNaN(qty)) qty = null;
+          }
+          await ThroneSync.logPlanContribution(plan, qty);
+        });
+      });
+    } catch (e) {
+      listEl.innerHTML = `<div class="feed-empty">Couldn't load plans.</div>`;
+    }
+  }
+
+  async function bootPlans() {
+    await renderPlans();
+    ThroneSync.subscribeInvestmentPlans(renderPlans);
+
+    document.getElementById("plan-add-btn").addEventListener("click", async () => {
+      const label = document.getElementById("plan-label-input").value.trim();
+      const amount = parseFloat(document.getElementById("plan-amount-input").value);
+      const frequency = document.getElementById("plan-frequency-select").value;
+      if (!label || isNaN(amount)) return;
+      document.getElementById("plan-label-input").value = "";
+      document.getElementById("plan-amount-input").value = "";
+      const nextDue = new Date().toISOString().slice(0, 10);
+      await ThroneSync.addInvestmentPlan(label, null, amount, frequency, nextDue);
+    });
+  }
+
   // ---------- TREASURY TABS (Invest / Budget) ----------
   function bootTreasuryTabs() {
     document.querySelectorAll(".treasury-tab").forEach(tab => {
@@ -1634,30 +1686,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     const container = document.getElementById("kingdom-cards");
     container.innerHTML = THRONE_CONFIG.kingdoms.map(k => `
       <div class="kingdom-card c3" data-id="${k.id}" style="--k-accent:${k.accent}; --k-accent-bright:${k.accentBright};">
-        ${k.modelUrl
-          ? `<div class="kingdom-model-wrap" data-no-card-click>
-               <model-viewer
-                 src="${k.modelUrl}"
-                 alt="${k.kingdomTitle} seal"
-                 auto-rotate auto-rotate-delay="0" rotation-per-second="18deg"
-                 camera-controls disable-zoom disable-pan interaction-prompt="none"
-                 shadow-intensity="0" exposure="1" loading="lazy">
-               </model-viewer>
-             </div>`
-          : `<div class="kingdom-seal">${k.kingdomTitle.charAt(4)}</div>`}
+        <div class="kingdom-seal">${k.kingdomTitle.charAt(4)}</div>
         <h4>${k.kingdomTitle}</h4>
         <div class="k-tagline">${k.tagline}</div>
         <div class="k-count" id="kcount-${k.id}">— posts</div>
-        ${k.inviteUrl
-          ? `<a class="kingdom-invite-link" href="${k.inviteUrl}" target="_blank" rel="noopener" data-no-card-click>${k.inviteLabel || "Visit"}</a>`
-          : ""}
       </div>`).join("");
-
-    // The model (drag-to-rotate) and the invite link both need clicks that
-    // don't also toggle the card's kingdom filter underneath them.
-    container.querySelectorAll("[data-no-card-click]").forEach(el => {
-      ["pointerdown", "click"].forEach(evt => el.addEventListener(evt, e => e.stopPropagation()));
-    });
 
     container.querySelectorAll(".kingdom-card").forEach(card => {
       card.addEventListener("click", () => {
@@ -1983,7 +2016,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           <div class="ex-stat"><div class="k">Items</div><div class="v">—</div></div>
           <div class="ex-stat"><div class="k">Owners</div><div class="v">—</div></div>
         </div>
-        <a href="https://opensea.io/${c.slug}" target="_blank" rel="noopener">View on OpenSea</a>
+        <a href="https://opensea.io/collection/${c.slug}" target="_blank" rel="noopener">View on OpenSea</a>
       </div>`).join("");
 
     for (const c of KINGS_CONFIG.exhibitions.collections) {

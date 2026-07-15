@@ -498,6 +498,34 @@ All three are real now:
 `read_at` column alongside this session's other additions. Every
 statement in it is safe to re-run even if you ran an earlier version.
 
+## Circle simplified
+
+Removed **Log a Post** (the manual caption/link/image form) and
+**Network Feed Status** from the Circle view. Both were leftovers from
+before King's Gallery and The Realm existed with their own real,
+live equivalents — Circle now just shows your personal Spotify
+"now playing" and Your Feed, nothing decorative left around it.
+
+## Liquid Glass — applied to overlay surfaces only
+
+Four surfaces now use a gold-forward "smoked obsidian glass" treatment
+— real `backdrop-filter: blur()` where there's genuine content behind
+them to blur, plus a warm gold tint, edge-light sweep, and corner
+glints:
+
+- **Auth / Vault passphrase gate** — the sign-in and passphrase panels
+- **Holding detail modal** — Markets' portfolio/watchlist detail view
+- **Call overlay controls** — the button bar and incoming-call actions
+  during a video call, genuinely blurring the live video feed behind them
+- **Loading screen** — no real content sits behind this one (it's the
+  very first thing shown), so it uses the same gold-glow language
+  without a pointless blur-over-nothing
+
+Deliberately **not** applied everywhere — the main app (Dashboard,
+News, Forge, etc.) stays fully opaque black. Liquid Glass only makes
+sense for things floating *above* the throne room; the throne room
+itself should feel solid, not see-through.
+
 ## What's still a UI shell (not wired up)
 
 **Tasks, Goals, Fitness, Training Splits, News (including custom
