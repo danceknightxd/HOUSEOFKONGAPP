@@ -8,6 +8,6 @@
    ============================================================ */
 
 const SUPABASE_CONFIG = {
-  url: "https://YOUR-PROJECT-REF.supabase.co",
-  anonKey: "YOUR-ANON-PUBLIC-KEY"
+  url: "https://gcoomsampafqlsoptqdw.supabase.co",
+  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdjb29tc2FtcGFmcWxzb3B0cWR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MzEyMjEsImV4cCI6MjA5OTAwNzIyMX0.TugaqSmoI0Ts7965uYCIbZSHgcjyLu4wpqHEqEjhyeY"
 };
