@@ -50,6 +50,43 @@ const ThroneSync = (() => {
       .subscribe();
   }
 
+  // Sets (or clears, if reminderAtIso is null) a push-reminder time on a
+  // task. reminder_sent resets to false so a changed time re-arms it —
+  // the scheduled Edge Function (see TASK_REMINDERS_SETUP.md) picks up
+  // anything due with reminder_sent = false.
+  async function setTaskReminder(id, reminderAtIso) {
+    return supabaseClient.from("tasks")
+      .update({ reminder_at: reminderAtIso, reminder_sent: false })
+      .eq("id", id);
+  }
+
+  // ---------- TIME BLOCKS (standalone hour-grid scheduling) ----------
+  async function loadTimeBlocks(day) {
+    const { data, error } = await supabaseClient
+      .from("time_blocks").select("*").eq("day", day).order("start_minutes", { ascending: true });
+    if (error) throw error;
+    return data;
+  }
+
+  async function addTimeBlock(label, day, startMinutes, durationMinutes, color) {
+    const user = ThroneAuth.getUser();
+    return supabaseClient.from("time_blocks").insert({
+      user_id: user.id, label, day, start_minutes: startMinutes,
+      duration_minutes: durationMinutes, color: color || null
+    });
+  }
+
+  async function removeTimeBlock(id) {
+    return supabaseClient.from("time_blocks").delete().eq("id", id);
+  }
+
+  function subscribeTimeBlocks(onChange) {
+    return supabaseClient
+      .channel("time-blocks-changes-" + uniqueChannelSuffix())
+      .on("postgres_changes", { event: "*", schema: "public", table: "time_blocks" }, onChange)
+      .subscribe();
+  }
+
   // ---------- FOCUS SESSIONS (real time-tracking) ----------
   async function logFocusSession(taskTitle, durationMinutes) {
     const user = ThroneAuth.getUser();
@@ -637,7 +674,8 @@ const ThroneSync = (() => {
   }
 
   return {
-    loadTasks, addTask, toggleTask, removeTask, purgeOldCompletedTasks, subscribeTasks,
+    loadTasks, addTask, toggleTask, removeTask, purgeOldCompletedTasks, subscribeTasks, setTaskReminder,
+    loadTimeBlocks, addTimeBlock, removeTimeBlock, subscribeTimeBlocks,
     logFocusSession, loadFocusSessions,
     loadGoals, addGoal, updateGoalProgress, removeGoal, subscribeGoals,
     loadFitnessLogs, logMetric, subscribeFitness,

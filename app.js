@@ -17,6 +17,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Handle the redirect back from Spotify's auth page, if that's why we're here.
   await ThroneSpotify.handleRedirect();
 
+  // ---------- brand seal (side rail, every view) ----------
+  const throneSealModel = document.getElementById("throne-seal-model");
+  if (throneSealModel && THRONE_CONFIG.throneSealModelUrl) {
+    throneSealModel.src = THRONE_CONFIG.throneSealModelUrl;
+  }
+
   const activeTopics = new Set(THRONE_CONFIG.topics.filter(t => t.enabled).map(t => t.name));
 
   // ---------- build topic chips from config ----------
@@ -93,6 +99,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       renderNewsFull();
     },
     onBloggerUpdated: (result, store) => {
+      // Network Feed Status panel was removed from the Circle view — this
+      // callback still fires per-feed as Blogger posts sync in, so keep
+      // it around to refresh the dashboard, just without a status row to update.
       renderDashboard();
     }
   });
@@ -112,6 +121,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ================================================================
   ThroneAuth.init((user) => {
     bootTasks();
+    bootTaskTabs();
+    bootPersonalBests();
+    bootTimeBlocks();
+    bootTaskCalendar();
     bootGoals();
     bootFitness();
     bootSplits();
@@ -132,7 +145,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     refreshDashboardCoreStats();
     bootNetWorth();
     bootFI();
-    bootPlans();
     bootTreasuryTabs();
     bootEnvelopes();
     bootBills();
@@ -180,8 +192,33 @@ document.addEventListener("DOMContentLoaded", async () => {
         <div class="check ${t.done ? "done" : ""}"></div>
         <div class="txt">${t.title}${formatDueBadge(t.due_date)}${t.recurrence && t.recurrence !== "none" ? ` <span style="color:var(--gold-dim); font-size:12px;">↻</span>` : ""}</div>
         <div class="prio ${t.priority} focus-select-task" data-title="${t.title.replace(/"/g, "&quot;")}" style="cursor:pointer;" title="Click to focus on this task">${priorityLabel(t.priority)}</div>
+        <span class="task-reminder-btn ${t.reminder_at && !t.reminder_sent ? "armed" : ""}" data-id="${t.id}" data-reminder="${t.reminder_at || ""}"
+          title="${t.reminder_at && !t.reminder_sent ? "Reminder set for " + new Date(t.reminder_at).toLocaleString() : "Set a reminder"}">🔔</span>
         <span class="task-remove" data-id="${t.id}" style="color:var(--ivory-dim); cursor:pointer; font-size:14px; margin-left:10px;" title="Remove">✕</span>
       </div>`).join("");
+
+    list.querySelectorAll(".task-reminder-btn").forEach(el => {
+      el.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const current = el.dataset.reminder;
+        const defaultVal = current ? new Date(current).toISOString().slice(0, 16) : "";
+        const input = prompt(
+          "Remind me at (YYYY-MM-DD HH:MM, 24h, your local time) — leave blank to clear:",
+          defaultVal ? defaultVal.replace("T", " ") : ""
+        );
+        if (input === null) return; // cancelled
+        if (input.trim() === "") {
+          await ThroneSync.setTaskReminder(el.dataset.id, null);
+          return;
+        }
+        const parsed = new Date(input.trim().replace(" ", "T"));
+        if (isNaN(parsed.getTime())) {
+          alert("Couldn't read that as a date/time — try YYYY-MM-DD HH:MM.");
+          return;
+        }
+        await ThroneSync.setTaskReminder(el.dataset.id, parsed.toISOString());
+      });
+    });
 
     list.querySelectorAll(".check").forEach(chk => {
       chk.addEventListener("click", async () => {
@@ -250,7 +287,178 @@ document.addEventListener("DOMContentLoaded", async () => {
       const tasks = await ThroneSync.loadTasks();
       renderTasks(tasks);
       refreshDashboardCoreStats();
+      if (document.getElementById("task-panel-calendar").style.display !== "none") {
+        renderTaskCalendarView();
+      }
     });
+  }
+
+  // ---------- TASKS+ : sub-tabs ----------
+  function bootTaskTabs() {
+    const panels = { queue: "task-panel-queue", pr: "task-panel-pr", blocks: "task-panel-blocks", calendar: "task-panel-calendar" };
+    document.querySelectorAll(".task-tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".task-tab").forEach(t => t.classList.toggle("on", t === tab));
+        const target = tab.dataset.tab;
+        Object.entries(panels).forEach(([key, id]) => {
+          document.getElementById(id).style.display = key === target ? "block" : "none";
+        });
+        // The 3D chart needs a visible (non-zero-width) container to size
+        // itself, so it only (re)builds once its panel is actually shown —
+        // and stops rendering the moment it's hidden, so it's not spinning
+        // in the background burning battery on a tab nobody's looking at.
+        if (target === "pr") refreshPersonalBests(true);
+        else ThroneTasksPlus.destroyPRChart();
+        if (target === "blocks") renderHourGridView();
+        if (target === "calendar") renderTaskCalendarView();
+      });
+    });
+  }
+
+  // ---------- TASKS+ : personal bests (3D chart) ----------
+  let cachedPRs = [];
+  async function refreshPersonalBests(forceRender) {
+    try {
+      const logs = await ThroneSync.loadExerciseLogs(200);
+      const prs = computePRs(logs);
+      cachedPRs = Object.values(prs).sort((a, b) =>
+        (b.weight * (1 + b.reps / 30)) - (a.weight * (1 + a.reps / 30))
+      );
+    } catch (e) {
+      cachedPRs = [];
+    }
+    const visible = document.getElementById("task-panel-pr").style.display !== "none";
+    if (visible || forceRender) {
+      ThroneTasksPlus.renderPRChart(document.getElementById("pr-chart-3d"), cachedPRs);
+    }
+  }
+
+  async function bootPersonalBests() {
+    await refreshPersonalBests(false);
+    ThroneSync.subscribeExerciseLogs(() => refreshPersonalBests(false));
+  }
+
+  // ---------- TASKS+ : time-blocking hour grid ----------
+  let blocksCurrentDate = new Date().toISOString().slice(0, 10);
+
+  function fmtBlocksDayLabel(dateStr) {
+    const d = new Date(dateStr + "T00:00:00");
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    if (dateStr === todayStr) return "today";
+    if (dateStr === tomorrow.toISOString().slice(0, 10)) return "tomorrow";
+    if (dateStr === yesterday.toISOString().slice(0, 10)) return "yesterday";
+    return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  }
+
+  async function renderHourGridView() {
+    document.getElementById("blocks-date-input").value = blocksCurrentDate;
+    document.getElementById("blocks-day-label").textContent = fmtBlocksDayLabel(blocksCurrentDate);
+    const container = document.getElementById("hour-grid-container");
+    try {
+      const blocks = await ThroneSync.loadTimeBlocks(blocksCurrentDate);
+      container.innerHTML = ThroneTasksPlus.hourGridHtml(blocks);
+      container.querySelectorAll(".tb-remove").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          await ThroneSync.removeTimeBlock(btn.dataset.id);
+        });
+      });
+    } catch (e) {
+      container.innerHTML = `<div class="feed-empty">Couldn't load time blocks — check Supabase config (see migration-tasks-plus.sql).</div>`;
+    }
+  }
+
+  async function bootTimeBlocks() {
+    await renderHourGridView();
+
+    document.getElementById("blocks-prev-day").addEventListener("click", () => {
+      const d = new Date(blocksCurrentDate + "T00:00:00");
+      d.setDate(d.getDate() - 1);
+      blocksCurrentDate = d.toISOString().slice(0, 10);
+      renderHourGridView();
+    });
+    document.getElementById("blocks-next-day").addEventListener("click", () => {
+      const d = new Date(blocksCurrentDate + "T00:00:00");
+      d.setDate(d.getDate() + 1);
+      blocksCurrentDate = d.toISOString().slice(0, 10);
+      renderHourGridView();
+    });
+    document.getElementById("blocks-date-input").addEventListener("change", (e) => {
+      if (!e.target.value) return;
+      blocksCurrentDate = e.target.value;
+      renderHourGridView();
+    });
+
+    document.getElementById("block-add-btn").addEventListener("click", async () => {
+      const label = document.getElementById("block-label-input").value.trim();
+      const timeVal = document.getElementById("block-start-input").value; // "HH:MM"
+      const duration = parseInt(document.getElementById("block-duration-select").value, 10);
+      if (!label || !timeVal) return;
+      const [hh, mm] = timeVal.split(":").map(Number);
+      const startMinutes = hh * 60 + mm;
+      document.getElementById("block-label-input").value = "";
+      document.getElementById("block-start-input").value = "";
+      await ThroneSync.addTimeBlock(label, blocksCurrentDate, startMinutes, duration);
+    });
+
+    ThroneSync.subscribeTimeBlocks(() => {
+      if (document.getElementById("task-panel-blocks").style.display !== "none") {
+        renderHourGridView();
+      }
+    });
+  }
+
+  // ---------- TASKS+ : monthly calendar ----------
+  const calToday = new Date();
+  let calYear = calToday.getFullYear();
+  let calMonth = calToday.getMonth(); // 0-11
+
+  function renderCalDayTasks(dateStr, tasksByDate) {
+    const dayTasks = (tasksByDate[dateStr] || []);
+    const panel = document.getElementById("cal-day-tasks");
+    const countEl = document.getElementById("cal-day-tasks-count");
+    if (!dateStr) { panel.innerHTML = ""; countEl.textContent = ""; return; }
+    countEl.textContent = `${dayTasks.length} on ${new Date(dateStr + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+    panel.innerHTML = dayTasks.length
+      ? dayTasks.map(t => `
+        <div class="task-row ${t.done ? "line-done" : ""}">
+          <div class="check ${t.done ? "done" : ""}" style="pointer-events:none;"></div>
+          <div class="txt">${t.title}</div>
+          <div class="prio ${t.priority}">${priorityLabel(t.priority)}</div>
+        </div>`).join("")
+      : `<div class="feed-empty">Nothing due this day.</div>`;
+  }
+
+  async function renderTaskCalendarView() {
+    const container = document.getElementById("task-calendar");
+    let tasksByDate = {};
+    try {
+      const tasks = await ThroneSync.loadTasks();
+      tasks.forEach(t => {
+        if (!t.due_date) return;
+        (tasksByDate[t.due_date] = tasksByDate[t.due_date] || []).push(t);
+      });
+    } catch (e) { /* render an empty calendar rather than block on a fetch error */ }
+
+    container.innerHTML = ThroneTasksPlus.monthCalendarHtml(calYear, calMonth, tasksByDate);
+
+    container.querySelectorAll(".cal-nav").forEach(btn => {
+      btn.addEventListener("click", () => {
+        calMonth += parseInt(btn.dataset.dir, 10);
+        if (calMonth < 0) { calMonth = 11; calYear--; }
+        if (calMonth > 11) { calMonth = 0; calYear++; }
+        renderTaskCalendarView();
+      });
+    });
+    container.querySelectorAll(".cal-cell[data-date]").forEach(cell => {
+      cell.addEventListener("click", () => renderCalDayTasks(cell.dataset.date, tasksByDate));
+    });
+  }
+
+  async function bootTaskCalendar() {
+    await renderTaskCalendarView();
   }
 
   // ---------- FOCUS TIMER ----------
@@ -717,7 +925,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       try {
         const posts = await ThroneSync.loadSocialPosts();
         renderSocialPosts(posts.filter(p => p.platform !== "instagram"));
-      } catch (e) { /* Your Feed just stays empty if this fails */ }
+      } catch (e) {
+        // "Log a Post" panel (and its status line) was removed from the
+        // Circle view — nowhere left to surface a load error inline, so
+        // just leave the feed list empty/stale rather than throw.
+      }
     }
     await refreshPosts();
     ThroneSync.subscribeSocialPosts(refreshPosts);
@@ -1176,70 +1388,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // ---------- AUTOINVEST PLANS ----------
-  function daysUntil(dateStr) {
-    const today = new Date(); today.setHours(0,0,0,0);
-    const due = new Date(dateStr + "T00:00:00");
-    return Math.round((due - today) / 86400000);
-  }
-
-  async function renderPlans() {
-    const listEl = document.getElementById("plans-list");
-    try {
-      const plans = await ThroneSync.loadInvestmentPlans();
-      if (!plans.length) {
-        listEl.innerHTML = `<div class="feed-empty">No plans yet.</div>`;
-        return;
-      }
-      listEl.innerHTML = plans.map(p => {
-        const days = daysUntil(p.next_due);
-        const dueLabel = days < 0 ? "OVERDUE" : days === 0 ? "DUE TODAY" : `in ${days}d`;
-        return `
-        <div class="holding-row" data-id="${p.id}" style="flex-direction:column; align-items:stretch; gap:6px;">
-          <div style="display:flex; justify-content:space-between;">
-            <div class="h-name">${p.label}</div>
-            <div class="h-val" style="color:${days <= 0 ? "var(--gold-bright)" : "var(--ivory-dim)"};">${dueLabel}</div>
-          </div>
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div class="h-val">$${p.amount} / ${p.frequency}${p.holding ? " → " + (p.holding.label || p.holding.symbol) : ""}</div>
-            <button class="ally-btn log-contribution-btn" data-id="${p.id}" style="margin-left:0;">Log</button>
-          </div>
-        </div>`;
-      }).join("");
-
-      listEl.querySelectorAll(".log-contribution-btn").forEach(btn => {
-        btn.addEventListener("click", async () => {
-          const plan = plans.find(p => p.id === btn.dataset.id);
-          let qty = null;
-          if (plan.holding_id) {
-            const input = prompt(`Quantity of ${plan.holding.label || plan.holding.symbol} purchased this contribution:`, "0");
-            qty = parseFloat(input);
-            if (isNaN(qty)) qty = null;
-          }
-          await ThroneSync.logPlanContribution(plan, qty);
-        });
-      });
-    } catch (e) {
-      listEl.innerHTML = `<div class="feed-empty">Couldn't load plans.</div>`;
-    }
-  }
-
-  async function bootPlans() {
-    await renderPlans();
-    ThroneSync.subscribeInvestmentPlans(renderPlans);
-
-    document.getElementById("plan-add-btn").addEventListener("click", async () => {
-      const label = document.getElementById("plan-label-input").value.trim();
-      const amount = parseFloat(document.getElementById("plan-amount-input").value);
-      const frequency = document.getElementById("plan-frequency-select").value;
-      if (!label || isNaN(amount)) return;
-      document.getElementById("plan-label-input").value = "";
-      document.getElementById("plan-amount-input").value = "";
-      const nextDue = new Date().toISOString().slice(0, 10);
-      await ThroneSync.addInvestmentPlan(label, null, amount, frequency, nextDue);
-    });
-  }
-
   // ---------- TREASURY TABS (Invest / Budget) ----------
   function bootTreasuryTabs() {
     document.querySelectorAll(".treasury-tab").forEach(tab => {
@@ -1686,11 +1834,30 @@ document.addEventListener("DOMContentLoaded", async () => {
     const container = document.getElementById("kingdom-cards");
     container.innerHTML = THRONE_CONFIG.kingdoms.map(k => `
       <div class="kingdom-card c3" data-id="${k.id}" style="--k-accent:${k.accent}; --k-accent-bright:${k.accentBright};">
-        <div class="kingdom-seal">${k.kingdomTitle.charAt(4)}</div>
+        ${k.modelUrl
+          ? `<div class="kingdom-model-wrap" data-no-card-click>
+               <model-viewer
+                 src="${k.modelUrl}"
+                 alt="${k.kingdomTitle} seal"
+                 auto-rotate auto-rotate-delay="0" rotation-per-second="18deg"
+                 camera-controls disable-zoom disable-pan interaction-prompt="none"
+                 shadow-intensity="0" exposure="1" loading="lazy">
+               </model-viewer>
+             </div>`
+          : `<div class="kingdom-seal">${k.kingdomTitle.charAt(4)}</div>`}
         <h4>${k.kingdomTitle}</h4>
         <div class="k-tagline">${k.tagline}</div>
         <div class="k-count" id="kcount-${k.id}">— posts</div>
+        ${k.inviteUrl
+          ? `<a class="kingdom-invite-link" href="${k.inviteUrl}" target="_blank" rel="noopener" data-no-card-click>${k.inviteLabel || "Visit"}</a>`
+          : ""}
       </div>`).join("");
+
+    // The model (drag-to-rotate) and the invite link both need clicks that
+    // don't also toggle the card's kingdom filter underneath them.
+    container.querySelectorAll("[data-no-card-click]").forEach(el => {
+      ["pointerdown", "click"].forEach(evt => el.addEventListener(evt, e => e.stopPropagation()));
+    });
 
     container.querySelectorAll(".kingdom-card").forEach(card => {
       card.addEventListener("click", () => {
@@ -2016,7 +2183,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           <div class="ex-stat"><div class="k">Items</div><div class="v">—</div></div>
           <div class="ex-stat"><div class="k">Owners</div><div class="v">—</div></div>
         </div>
-        <a href="https://opensea.io/collection/${c.slug}" target="_blank" rel="noopener">View on OpenSea</a>
+        <a href="https://opensea.io/${c.slug}" target="_blank" rel="noopener">View on OpenSea</a>
       </div>`).join("");
 
     for (const c of KINGS_CONFIG.exhibitions.collections) {
