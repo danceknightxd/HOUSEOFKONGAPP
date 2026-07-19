@@ -95,6 +95,7 @@ const ThroneCall = (() => {
     };
 
     roomChannel = supabaseClient.channel(`call-room-${roomId}`);
+    let offerSent = false;
 
     roomChannel
       .on("broadcast", { event: "offer" }, async (msg) => {
@@ -118,14 +119,28 @@ const ThroneCall = (() => {
       .on("broadcast", { event: "hangup" }, () => {
         emitState("ended", { reason: "remote-hangup" });
         cleanupOnly();
+      })
+      // The callee announces "I'm actually listening now" once THEIR
+      // subscription is confirmed — the caller waits for this instead
+      // of guessing timing, so the offer is never sent into empty air.
+      .on("broadcast", { event: "callee-ready" }, async () => {
+        if (!isCaller || offerSent) return;
+        offerSent = true;
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        roomChannel.send({ type: "broadcast", event: "offer", payload: { sdp: offer } });
       });
 
     await roomChannel.subscribe(async (status) => {
       if (status !== "SUBSCRIBED") return;
-      if (isCaller) {
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        roomChannel.send({ type: "broadcast", event: "offer", payload: { sdp: offer } });
+      if (!isCaller) {
+        // Tell the caller we're ready — this may arrive before the
+        // caller's listener is attached on a very first connection,
+        // so also send once more shortly after as a safety net.
+        roomChannel.send({ type: "broadcast", event: "callee-ready", payload: {} });
+        setTimeout(() => {
+          if (roomChannel) roomChannel.send({ type: "broadcast", event: "callee-ready", payload: {} });
+        }, 400);
       }
     });
 

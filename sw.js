@@ -6,7 +6,7 @@
    network for fresh news, not the cache.
    ============================================================ */
 
-const CACHE_NAME = "the-throne-shell-v26";
+const CACHE_NAME = "the-throne-shell-v29";
 const SHELL_FILES = [
   "./index.html",
   "./config.js",
@@ -16,7 +16,6 @@ const SHELL_FILES = [
   "./vault-crypto.js",
   "./auth.js",
   "./sync.js",
-  "./tasksplus.js",
   "./spotify-config.js",
   "./spotify.js",
   "./market-config.js",
