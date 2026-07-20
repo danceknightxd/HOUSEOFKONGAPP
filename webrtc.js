@@ -16,9 +16,24 @@
 
 const ThroneCall = (() => {
 
-  const RTC_CONFIG = {
-    iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-  };
+  // STUN alone can't traverse every network (symmetric NAT, client-isolated
+  // wifi, some carrier/corporate networks) — that's the #1 cause of a call
+  // getting stuck on "Connecting…" with only your own video ever showing.
+  // If WEBRTC_CONFIG.turnServers is filled in (see webrtc-config.js), those
+  // get added here too so calls can relay through them when a direct
+  // connection isn't possible.
+  function buildRtcConfig() {
+    const iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
+    if (typeof WEBRTC_CONFIG !== "undefined" && Array.isArray(WEBRTC_CONFIG.turnServers)) {
+      WEBRTC_CONFIG.turnServers.forEach(s => { if (s && s.urls) iceServers.push(s); });
+    }
+    return { iceServers };
+  }
+
+  // How long to wait for the peer connection to actually reach "connected"
+  // before giving up and telling the person it failed, instead of leaving
+  // them staring at "Connecting…" forever with no way to know what happened.
+  const CONNECT_TIMEOUT_MS = 20000;
 
   let peerConnection = null;
   let localStream = null;
@@ -27,6 +42,7 @@ const ThroneCall = (() => {
   let currentRoomId = null;
   let onIncomingCallCb = null;
   let onCallStateCb = null;
+  let connectTimeout = null;
 
   function emitState(state, detail) {
     if (onCallStateCb) onCallStateCb(state, detail);
@@ -80,16 +96,27 @@ const ThroneCall = (() => {
     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     emitState("local-stream", { stream: localStream });
 
-    peerConnection = new RTCPeerConnection(RTC_CONFIG);
+    peerConnection = new RTCPeerConnection(buildRtcConfig());
     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
     peerConnection.ontrack = (event) => {
       emitState("remote-stream", { stream: event.streams[0] });
     };
 
+    connectTimeout = setTimeout(() => {
+      if (peerConnection && peerConnection.connectionState !== "connected") {
+        emitState("ended", { reason: "timeout" });
+        cleanupOnly();
+      }
+    }, CONNECT_TIMEOUT_MS);
+
     peerConnection.onconnectionstatechange = () => {
-      if (peerConnection.connectionState === "connected") emitState("connected", {});
+      if (peerConnection.connectionState === "connected") {
+        if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
+        emitState("connected", {});
+      }
       if (["disconnected", "failed", "closed"].includes(peerConnection.connectionState)) {
+        if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
         emitState("ended", { reason: peerConnection.connectionState });
       }
     };
@@ -152,15 +179,23 @@ const ThroneCall = (() => {
   }
 
   function cleanupOnly() {
+    if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
     if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
     if (peerConnection) { peerConnection.close(); peerConnection = null; }
     if (roomChannel) { supabaseClient.removeChannel(roomChannel); roomChannel = null; }
     currentRoomId = null;
   }
 
-  function hangUp() {
+  async function hangUp() {
     if (roomChannel) {
-      roomChannel.send({ type: "broadcast", event: "hangup", payload: {} });
+      // This used to fire-and-forget: cleanupOnly() (which removes the
+      // channel) ran immediately after, often before the broadcast had
+      // actually reached the network — so the other person's call never
+      // got the message and stayed "connected" on their end forever.
+      // Awaiting it first guarantees the hangup is sent before the
+      // channel it travels over gets torn down.
+      try { await roomChannel.send({ type: "broadcast", event: "hangup", payload: {} }); }
+      catch (e) { /* still clean up locally even if the send failed */ }
     }
     cleanupOnly();
     emitState("ended", { reason: "local-hangup" });

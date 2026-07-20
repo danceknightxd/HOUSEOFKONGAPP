@@ -591,7 +591,7 @@ const ThroneSync = (() => {
   // Get (or create) a two-person thread between me and another user's email.
   async function getOrCreateThreadWith(otherEmail) {
     const { data: otherProfile, error } = await supabaseClient
-      .from("profiles").select("id, public_key, display_name")
+      .from("profiles").select("id, email, public_key, display_name")
       .eq("email", otherEmail.trim().toLowerCase())
       .maybeSingle();
 
@@ -615,13 +615,20 @@ const ThroneSync = (() => {
 
     if (existingThreads && existingThreads.length) {
       const threadIds = existingThreads.map(t => t.thread_id);
-      const { data: sharedThread } = await supabaseClient
+      // NOTE: this used to be .maybeSingle(), which throws once more than
+      // one shared thread exists between the same two people — and since
+      // that error wasn't checked, it silently fell through to creating
+      // ANOTHER thread every time, compounding duplicates forever. Taking
+      // the first match instead means it can never error on multiplicity,
+      // and it deterministically reuses the same (oldest) thread.
+      const { data: sharedThreads } = await supabaseClient
         .from("vault_participants")
         .select("thread_id")
         .in("thread_id", threadIds)
         .eq("user_id", otherUserId)
-        .maybeSingle();
-      if (sharedThread) return sharedThread.thread_id;
+        .order("thread_id", { ascending: true })
+        .limit(1);
+      if (sharedThreads && sharedThreads.length) return sharedThreads[0].thread_id;
     }
 
     const { data: newThread, error } = await supabaseClient
@@ -634,6 +641,47 @@ const ThroneSync = (() => {
     ]);
 
     return newThread.id;
+  }
+
+  // Loads every chamber the current user is already part of, so the Vault
+  // list is populated on open instead of staying empty until you retype
+  // someone's email. Done as separate queries (not a nested PostgREST
+  // embed through vault_participants.user_id) because that column only
+  // has a foreign key to auth.users, not profiles — same class of issue
+  // fix-alliances-load.sql addressed for the alliances table.
+  async function loadMyThreads() {
+    const user = ThroneAuth.getUser();
+    const { data: myRows, error } = await supabaseClient
+      .from("vault_participants").select("thread_id").eq("user_id", user.id);
+    if (error) throw error;
+    if (!myRows || !myRows.length) return [];
+
+    const threadIds = myRows.map(r => r.thread_id);
+    const { data: otherRows, error: err2 } = await supabaseClient
+      .from("vault_participants").select("thread_id, user_id")
+      .in("thread_id", threadIds).neq("user_id", user.id);
+    if (err2) throw err2;
+    if (!otherRows || !otherRows.length) return [];
+
+    const otherUserIds = [...new Set(otherRows.map(r => r.user_id))];
+    const { data: profiles, error: err3 } = await supabaseClient
+      .from("profiles").select("id, email, display_name, public_key")
+      .in("id", otherUserIds);
+    if (err3) throw err3;
+
+    const profileById = {};
+    (profiles || []).forEach(p => { profileById[p.id] = p; });
+
+    return otherRows
+      .map(r => ({ threadId: r.thread_id, otherProfile: profileById[r.user_id] }))
+      .filter(t => t.otherProfile);
+  }
+
+  // Deletes a chamber entirely (messages + your and the other person's
+  // membership row cascade-delete along with it — no separate cleanup
+  // needed). Either participant can do this.
+  async function removeThread(threadId) {
+    return supabaseClient.from("vault_threads").delete().eq("id", threadId);
   }
 
   async function loadThreadMessages(threadId, otherPublicKeyBase64) {
@@ -694,7 +742,7 @@ const ThroneSync = (() => {
     loadSavingsGoals, addSavingsGoal, contributeSavingsGoal, removeSavingsGoal, subscribeSavingsGoals,
     updateDisplayName,
     loadAlliances, sendAllianceRequest, respondToAlliance, removeAlliance, subscribeAlliances,
-    getOrCreateThreadWith, getOrCreateThreadWithUserId,
+    getOrCreateThreadWith, getOrCreateThreadWithUserId, loadMyThreads, removeThread,
     markThreadMessagesRead, loadUnreadMessageCount,
     loadThreadMessages, sendMessage, subscribeThreadMessages
   };

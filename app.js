@@ -2112,8 +2112,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         statusEl.textContent = "Call declined";
         setTimeout(hideCallOverlay, 1500);
       } else if (state === "ended") {
-        statusEl.textContent = "Call ended";
-        setTimeout(hideCallOverlay, 1000);
+        statusEl.textContent = detail && detail.reason === "timeout"
+          ? "Couldn't connect — this can happen on networks that block direct video calls"
+          : "Call ended";
+        setTimeout(hideCallOverlay, detail && detail.reason === "timeout" ? 3000 : 1000);
       }
     });
 
@@ -2309,13 +2311,30 @@ document.addEventListener("DOMContentLoaded", async () => {
       return `
         <div class="vlist-item ${id === activeThreadId ? "on" : ""}" data-id="${id}">
           <div class="vav"></div>
-          <div><div class="vname">${t.otherProfile.display_name || t.otherProfile.email}</div>
+          <div style="flex:1; min-width:0;"><div class="vname">${t.otherProfile.display_name || t.otherProfile.email}</div>
           <div class="vlast">${t.otherProfile.email}</div></div>
+          <span class="vault-thread-remove" data-id="${id}" title="Remove chamber">✕</span>
         </div>`;
     }).join("");
 
     listEl.querySelectorAll(".vlist-item").forEach(item => {
       item.addEventListener("click", () => openThread(item.dataset.id));
+    });
+    listEl.querySelectorAll(".vault-thread-remove").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const t = vaultThreads[btn.dataset.id];
+        const name = t ? (t.otherProfile.display_name || t.otherProfile.email) : "this chamber";
+        if (!confirm(`Remove your chamber with ${name}? This deletes the whole conversation for both of you — it can't be undone.`)) return;
+        await ThroneSync.removeThread(btn.dataset.id);
+        delete vaultThreads[btn.dataset.id];
+        if (activeThreadId === btn.dataset.id) {
+          activeThreadId = null;
+          if (activeThreadSub) supabaseClient.removeChannel(activeThreadSub);
+          document.getElementById("vault-msgs").innerHTML = `<div class="feed-empty">Select a chamber.</div>`;
+        }
+        renderThreadList();
+      });
     });
   }
 
@@ -2356,6 +2375,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   async function bootVault() {
+    try {
+      const threads = await ThroneSync.loadMyThreads();
+      threads.forEach(t => { vaultThreads[t.threadId] = { otherProfile: t.otherProfile }; });
+      renderThreadList();
+    } catch (e) {
+      // Leave the list empty rather than block the rest of Vault setup —
+      // the "add someone" flow below still works even if this failed.
+    }
+
     document.getElementById("vault-new-contact-btn").addEventListener("click", connectToContact);
     document.getElementById("vault-new-contact").addEventListener("keydown", (e) => {
       if (e.key === "Enter") connectToContact();
