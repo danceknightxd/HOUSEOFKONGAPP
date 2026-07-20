@@ -48,6 +48,29 @@ const ThroneCall = (() => {
     if (onCallStateCb) onCallStateCb(state, detail);
   }
 
+  // supabase-js's channel.subscribe() does NOT return a Promise — it
+  // returns the channel object immediately and only reports real status
+  // through its callback. `await channel.subscribe()` therefore doesn't
+  // actually wait for anything; it resolves instantly regardless of
+  // whether the channel is live yet. Sending on a channel that isn't
+  // really subscribed yet can silently drop the message — which is what
+  // was happening to the "ring" notification that tells the other person
+  // someone's calling: it could be sent before the channel was ready, so
+  // it never arrived, and the whole call would sit there with nothing
+  // visibly happening on either end. This wraps subscribe() in a real
+  // Promise that only resolves once the status callback confirms
+  // "SUBSCRIBED", so nothing sends before the channel can actually carry it.
+  function subscribeAndWait(channel) {
+    return new Promise((resolve, reject) => {
+      channel.subscribe((status, err) => {
+        if (status === "SUBSCRIBED") resolve(channel);
+        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          reject(err || new Error("Couldn't connect (" + status + ")"));
+        }
+      });
+    });
+  }
+
   // ---------- inbox: listen for incoming calls ----------
   function listenForCalls(onIncomingCall) {
     onIncomingCallCb = onIncomingCall;
@@ -67,11 +90,12 @@ const ThroneCall = (() => {
 
     // Ring the other person's inbox
     const ringChannel = supabaseClient.channel(`call-inbox-${otherUserId}`);
-    await ringChannel.subscribe();
-    ringChannel.send({
+    await subscribeAndWait(ringChannel);
+    await ringChannel.send({
       type: "broadcast", event: "ring",
       payload: { roomId: currentRoomId, fromId: user.id, fromName: user.email }
     });
+    supabaseClient.removeChannel(ringChannel);
 
     await setupPeerConnection(currentRoomId, true);
     emitState("calling", { roomId: currentRoomId, otherName });
@@ -84,11 +108,13 @@ const ThroneCall = (() => {
     emitState("connecting", { roomId });
   }
 
-  function declineCall(roomId) {
+  async function declineCall(roomId) {
     const ch = supabaseClient.channel(`call-room-${roomId}`);
-    ch.subscribe(() => {
-      ch.send({ type: "broadcast", event: "declined", payload: {} });
-    });
+    try {
+      await subscribeAndWait(ch);
+      await ch.send({ type: "broadcast", event: "declined", payload: {} });
+    } catch (e) { /* best-effort — caller's own connect-timeout covers this either way */ }
+    supabaseClient.removeChannel(ch);
   }
 
   // ---------- shared WebRTC setup ----------
@@ -158,18 +184,16 @@ const ThroneCall = (() => {
         roomChannel.send({ type: "broadcast", event: "offer", payload: { sdp: offer } });
       });
 
-    await roomChannel.subscribe(async (status) => {
-      if (status !== "SUBSCRIBED") return;
-      if (!isCaller) {
-        // Tell the caller we're ready — this may arrive before the
-        // caller's listener is attached on a very first connection,
-        // so also send once more shortly after as a safety net.
-        roomChannel.send({ type: "broadcast", event: "callee-ready", payload: {} });
-        setTimeout(() => {
-          if (roomChannel) roomChannel.send({ type: "broadcast", event: "callee-ready", payload: {} });
-        }, 400);
-      }
-    });
+    await subscribeAndWait(roomChannel);
+    if (!isCaller) {
+      // Tell the caller we're ready — this may arrive before the
+      // caller's listener is attached on a very first connection,
+      // so also send once more shortly after as a safety net.
+      roomChannel.send({ type: "broadcast", event: "callee-ready", payload: {} });
+      setTimeout(() => {
+        if (roomChannel) roomChannel.send({ type: "broadcast", event: "callee-ready", payload: {} });
+      }, 400);
+    }
 
     peerConnection.onicecandidate = (event) => {
       if (event.candidate && roomChannel) {
