@@ -289,9 +289,28 @@
   .chip[data-nomatch="1"]{ opacity:.4; }
 
   /* ---------- auth gate ---------- */
+  /* ---------- liquid background (Auth Gate + Vault passphrase gate only) ---------- */
+  #liquid-stage{ display:none; }
+  #liquid-stage.active{ display:block; }
+  #liquid-bg{ position:fixed; inset:0; z-index:998; background:#000; }
+  #liquid-canvas{
+    position:fixed; inset:0; z-index:999;
+    filter: blur(18px) contrast(28) brightness(0.9);
+    pointer-events:none;
+    will-change: transform;
+    transform: translateZ(0);
+  }
+  @media (max-width: 640px){
+    /* full-viewport blur(18px) is the single most expensive part of this
+       effect on mobile GPUs — easing it off keeps the animation smooth */
+    #liquid-canvas{ filter: blur(12px) contrast(24) brightness(0.9); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    #liquid-canvas{ display:none; }
+  }
+
   #auth-gate{
     position:fixed; inset:0; z-index:1000;
-    background:rgba(0,0,0,0.92); backdrop-filter:blur(6px);
     display:none; align-items:center; justify-content:center;
   }
   #auth-gate.show{ display:flex; }
@@ -318,7 +337,6 @@
   .loading-msg{ font-family:'Space Mono',monospace; font-size:12px; letter-spacing:.1em; color:var(--ivory-dim); text-transform:uppercase; }
   #passphrase-gate{
     position:fixed; inset:0; z-index:1001;
-    background:rgba(0,0,0,0.92); backdrop-filter:blur(6px);
     display:none; align-items:center; justify-content:center;
   }
   #passphrase-gate.show{ display:flex; }
@@ -362,6 +380,7 @@
     padding:12px 14px; color:var(--ivory); font-family:'Cormorant Garamond',serif; font-size:16px; margin-bottom:12px;
   }
   .auth-box input:focus{ outline:none; border-color:var(--gold-dim); }
+  .auth-box input:focus-visible{ outline:2px solid var(--gold-bright); outline-offset:2px; }
   .auth-box button{
     position:relative; z-index:1;
     width:100%; padding:12px; border-radius:10px; border:none; cursor:pointer;
@@ -371,6 +390,7 @@
     box-shadow:0 4px 18px rgba(201,168,76,0.28);
   }
   .auth-box button:hover{ background:var(--gold-bright); }
+  .auth-box button:focus-visible{ outline:2px solid var(--gold-bright); outline-offset:3px; }
   .auth-box h2, .auth-box .sub, .auth-box .msg{ position:relative; z-index:1; }
   .auth-box .msg{ margin-top:16px; font-family:'Space Mono',monospace; font-size:11px; color:var(--ivory-dim); line-height:1.6; min-height:14px; }
   .add-row{ display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
@@ -670,6 +690,11 @@
   </div>
   <div class="loading-brand crest">THE <span>THRONE</span></div>
   <div class="loading-msg" id="loading-msg">Entering the court...</div>
+</div>
+
+<div id="liquid-stage">
+  <div id="liquid-bg"></div>
+  <canvas id="liquid-canvas"></canvas>
 </div>
 
 <div id="auth-gate">
@@ -1624,6 +1649,7 @@
 
   // service worker registration lives in app.js
 </script>
+<script src="liquid-bg.js"></script>
 <script src="config.js"></script>
 <script src="feeds.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
