@@ -2031,8 +2031,30 @@ document.addEventListener("DOMContentLoaded", async () => {
     }));
     acceptedEl.querySelectorAll(".call-ally").forEach(btn => btn.addEventListener("click", (e) => {
       const row = e.target.closest(".ally-row");
-      ThroneCall.startCall(row.dataset.otherId, row.dataset.otherName);
+      startCallSafely(row.dataset.otherId, row.dataset.otherName);
     }));
+  }
+
+  // startCall()/answerCall() were being fired without a .catch anywhere —
+  // if getUserMedia rejected (camera permission denied, camera already in
+  // use by another app/tab, no camera found) the whole thing failed
+  // completely silently: no camera, no call screen, nothing. This makes
+  // that failure visible instead, with a message that actually explains
+  // what went wrong rather than just "it didn't work."
+  function describeCallError(err) {
+    const name = err && err.name;
+    if (name === "NotAllowedError") return "Camera/mic permission was denied. Check your browser's site settings and allow access, then try again.";
+    if (name === "NotFoundError") return "No camera or microphone was found on this device.";
+    if (name === "NotReadableError") return "Your camera is already in use by another app or browser tab. Close it and try again.";
+    return (err && err.message) ? err.message : "Couldn't start the call.";
+  }
+
+  async function startCallSafely(otherId, otherName) {
+    try {
+      await ThroneCall.startCall(otherId, otherName);
+    } catch (err) {
+      alert(describeCallError(err));
+    }
   }
 
   async function bootAlliances() {
@@ -2124,7 +2146,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       document.getElementById("call-incoming-actions").style.display = "none";
       document.getElementById("call-active-controls").style.display = "flex";
       document.getElementById("call-status").textContent = "Connecting…";
-      await ThroneCall.answerCall(pendingIncoming.roomId);
+      try {
+        await ThroneCall.answerCall(pendingIncoming.roomId);
+      } catch (err) {
+        document.getElementById("call-status").textContent = describeCallError(err);
+        setTimeout(hideCallOverlay, 3000);
+      }
       pendingIncoming = null;
     });
 
@@ -2154,7 +2181,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("vault-call-btn").addEventListener("click", () => {
       if (!activeThreadId || !vaultThreads[activeThreadId]) return;
       const t = vaultThreads[activeThreadId];
-      ThroneCall.startCall(t.otherProfile.id, t.otherProfile.display_name || t.otherProfile.email);
+      startCallSafely(t.otherProfile.id, t.otherProfile.display_name || t.otherProfile.email);
     });
   }
 
