@@ -6,7 +6,7 @@
    network for fresh news, not the cache.
    ============================================================ */
 
-const CACHE_NAME = "the-throne-shell-v36";
+const CACHE_NAME = "the-throne-shell-v37";
 const SHELL_FILES = [
   "./index.html",
   "./liquid-bg.js",
@@ -33,7 +33,8 @@ const SHELL_FILES = [
   "./icon-192.png",
   "./icon-512.png",
   "./icon-512-maskable.png",
-  "./icon-192-apple.png"
+  "./icon-192-apple.png",
+  "./seal-portrait.jpg"
 ];
 
 self.addEventListener("install", (event) => {

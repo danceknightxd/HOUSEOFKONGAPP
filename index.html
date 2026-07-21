@@ -127,12 +127,13 @@
 
   .rail-foot{ display:flex; flex-direction:column; align-items:center; gap:14px; }
   .avatar{
-    width:36px; height:36px; border-radius:50%;
+    width:36px; height:36px; border-radius:50%; overflow:hidden;
     background:linear-gradient(145deg, #2a2416, #0d0b07);
     border:1px solid var(--gold-dim);
     display:flex; align-items:center; justify-content:center;
     font-family:'Cinzel',serif; font-size:12px; color:var(--gold-bright); cursor:pointer;
   }
+  .avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
 
   /* ---------- MAIN ---------- */
   .main{ position:relative; z-index:1; height:100vh; overflow-y:auto; }
@@ -393,10 +394,12 @@
   }
   .auth-box > *{ position:relative; z-index:1; }
   .auth-box .seal-lg{
-    width:56px; height:56px; margin:0 auto 18px; border-radius:50%;
+    width:56px; height:56px; margin:0 auto 18px; border-radius:50%; overflow:hidden;
     background:radial-gradient(circle, var(--glass-seal-glow-1), var(--glass-seal-glow-2) 70%, transparent);
+    border:1.5px solid rgba(232,199,102,0.6);
     filter:drop-shadow(0 0 14px rgba(201,168,76,0.4)) drop-shadow(0 0 30px rgba(201,168,76,0.18));
   }
+  .auth-box .seal-lg img{ width:100%; height:100%; object-fit:cover; display:block; }
   .auth-box h2{ font-family:'Bebas Neue',sans-serif; font-size:30px; letter-spacing:.04em; color:var(--ivory); margin-bottom:6px; }
   .auth-box .sub{ font-size:15px; color:var(--ivory-dim); font-style:italic; margin-bottom:22px; }
   .auth-box input{
@@ -725,11 +728,7 @@
 
 <div id="auth-gate">
   <div class="auth-box">
-    <svg class="seal-lg" viewBox="0 0 48 48">
-      <circle cx="24" cy="24" r="21" fill="none" stroke="#c9a84c" stroke-width="0.8" stroke-dasharray="2 4"/>
-      <circle cx="24" cy="24" r="10.5" fill="#0a0a0a" stroke="#c9a84c" stroke-width="1"/>
-      <text x="24" y="28.5" text-anchor="middle" font-family="Cinzel, serif" font-size="10" fill="#e8c766">T</text>
-    </svg>
+    <div class="seal-lg"><img src="seal-portrait.jpg" alt="The Throne"></div>
     <h2 class="crest">THE THRONE</h2>
     <div class="sub">Enter your seat of power.</div>
     <input type="email" id="auth-email" placeholder="your@email.com" autocomplete="email">
@@ -740,11 +739,7 @@
 
 <div id="passphrase-gate">
   <div class="auth-box">
-    <svg class="seal-lg" viewBox="0 0 48 48">
-      <circle cx="24" cy="24" r="21" fill="none" stroke="#c9a84c" stroke-width="0.8" stroke-dasharray="2 4"/>
-      <circle cx="24" cy="24" r="10.5" fill="#0a0a0a" stroke="#c9a84c" stroke-width="1"/>
-      <text x="24" y="28.5" text-anchor="middle" font-family="Cinzel, serif" font-size="10" fill="#e8c766">V</text>
-    </svg>
+    <div class="seal-lg"><img src="seal-portrait.jpg" alt="The Vault"></div>
     <h2 class="crest" id="pg-title">Vault Key</h2>
     <div class="sub" id="pg-sub">Set a passphrase to protect your Vault identity.</div>
     <input type="password" id="pg-passphrase" placeholder="Passphrase" autocomplete="off">
@@ -821,7 +816,7 @@
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
         <span class="rail-tip">Settings</span>
       </div>
-      <div class="avatar">NL</div>
+      <div class="avatar"><img src="seal-portrait.jpg" alt=""></div>
     </div>
   </nav>
 
