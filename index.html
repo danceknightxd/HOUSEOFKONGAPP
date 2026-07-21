@@ -180,7 +180,11 @@
   .c4{ grid-column:span 4; } .c5{grid-column:span 5;} .c7{grid-column:span 7;} .c8{grid-column:span 8;} .c12{grid-column:span 12;} .c6{grid-column:span 6;}
 
   .stat-row{ display:flex; gap:18px; margin-bottom:20px; }
-  .stat{ flex:1; }
+  .stat{ flex:1; min-width:0; }
+  @media (max-width:640px){
+    .stat-row{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    .stat-row .stat:nth-child(4){ grid-column:1 / -1; }
+  }
   .stat .k{ font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.14em; color:var(--ivory-dim); text-transform:uppercase; }
   .stat .v{ font-family:'Bebas Neue',sans-serif; font-size:38px; color:var(--ivory); line-height:1.1; }
   .stat .v small{ font-family:'Space Mono',monospace; font-size:13px; color:var(--gold); }
@@ -228,7 +232,7 @@
   .check{ width:17px; height:17px; border-radius:5px; border:1.5px solid var(--gold-dim); flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; }
   .check.done{ background:var(--gold); border-color:var(--gold); }
   .check.done::after{ content:'✓'; font-size:11px; color:#000; font-weight:bold; }
-  .task-row .txt{ flex:1; font-size:16px; }
+  .task-row .txt{ flex:1; min-width:0; overflow-wrap:anywhere; font-size:16px; }
   .task-row.line-done .txt{ color:var(--ivory-dim); text-decoration:line-through; }
   .task-row .prio{ font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.08em; padding:2px 8px; border-radius:10px; text-transform:uppercase; }
   .prio.high{ color:#c98c7f; border:1px solid #4a2b26; }
@@ -1222,9 +1226,7 @@
         </div>
       </div>
 
-      <div class="footnote">
-        <span class="gk">// ON DATA SOURCES —</span> crypto prices and charts come live from CoinGecko's free public API, no key required. Stock quotes and charts use Twelve Data's free tier, which does require a key (800 requests/day, free) — add yours in <code>market-config.js</code>. This isn't financial advice — it's your own data, displayed.
-      </div>
+
 
       </div>
 
@@ -1294,9 +1296,7 @@
         </div>
       </div>
 
-      <div class="footnote">
-        <span class="gk">// A NOTE ON INSTAGRAM —</span> Instagram's API requires exchanging a secret server-side; a purely client-side self-hosted app can't do that safely, so posts are logged manually here instead of auto-pulled. Spotify's "now playing" above is a real, live connection — Spotify's PKCE flow was built for exactly this kind of app.
-      </div>
+
     </section>
 
     <!-- ===== THE REALM (KINGDOMS) ===== -->
@@ -1388,9 +1388,6 @@
       <!-- EXHIBITIONS -->
       <div class="kwing-panel" id="kwing-exhibitions" style="display:none;">
         <div class="grid" id="exhibition-cards"></div>
-        <div class="footnote">
-          <span class="gk">// ON DATA —</span> collection stats come live from OpenSea's public API. Works without a key at low request volume; add a free key in <code>kings-config.js</code> if you see rate-limit errors.
-        </div>
       </div>
     </section>
 
@@ -1429,9 +1426,7 @@
         </div>
       </div>
 
-      <div class="footnote">
-        <span class="gk">// A NOTE ON SECURITY —</span> messages are encrypted in your browser before they ever reach the server, using ECDH key exchange + AES-256-GCM (Web Crypto API, no custom crypto). Supabase stores ciphertext only — it cannot read your messages. "Quantum encryption" isn't yet a real deployable consumer technology; this is the strongest standard that actually exists today.
-      </div>
+
     </section>
 
     <!-- ===== SETTINGS ===== -->

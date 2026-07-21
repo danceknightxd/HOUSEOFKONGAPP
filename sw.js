@@ -6,7 +6,7 @@
    network for fresh news, not the cache.
    ============================================================ */
 
-const CACHE_NAME = "the-throne-shell-v34";
+const CACHE_NAME = "the-throne-shell-v36";
 const SHELL_FILES = [
   "./index.html",
   "./liquid-bg.js",
