@@ -6,10 +6,11 @@
    network for fresh news, not the cache.
    ============================================================ */
 
-const CACHE_NAME = "the-throne-shell-v33";
+const CACHE_NAME = "the-throne-shell-v34";
 const SHELL_FILES = [
   "./index.html",
   "./liquid-bg.js",
+  "./liquid-bg-main.js",
   "./config.js",
   "./feeds.js",
   "./supabase-config.js",

@@ -290,6 +290,28 @@
 
   /* ---------- auth gate ---------- */
   /* ---------- liquid background (Auth Gate + Vault passphrase gate only) ---------- */
+  /* ---------- liquid background (main app, ambient) ----------
+     z-index:-1 keeps this reliably behind .app and everything in it
+     (including .rail's z-index:2 and .app::before's z-index:0) without
+     having to reason about stacking-context nesting — body's own black
+     background already gives the blur+contrast trick a solid backdrop
+     to clip against, so no separate black layer is needed here like
+     the gate version needed (that page had no black body background). */
+  #liquid-canvas-main{
+    position:fixed; inset:0; z-index:-1;
+    filter: blur(30px) contrast(22) brightness(0.85);
+    opacity:0.5;
+    pointer-events:none;
+    will-change: transform;
+    transform: translateZ(0);
+  }
+  @media (max-width: 640px){
+    #liquid-canvas-main{ filter: blur(20px) contrast(20) brightness(0.85); opacity:0.4; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    #liquid-canvas-main{ display:none; }
+  }
+
   #liquid-stage{ display:none; }
   #liquid-stage.active{ display:block; }
   #liquid-bg{ position:fixed; inset:0; z-index:998; background:#000; }
@@ -727,6 +749,8 @@
     <div class="msg" id="pg-msg"></div>
   </div>
 </div>
+
+<canvas id="liquid-canvas-main"></canvas>
 
 <div class="app">
   <!-- ============ SIDE RAIL ============ -->
@@ -1650,6 +1674,7 @@
   // service worker registration lives in app.js
 </script>
 <script src="liquid-bg.js"></script>
+<script src="liquid-bg-main.js"></script>
 <script src="config.js"></script>
 <script src="feeds.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
