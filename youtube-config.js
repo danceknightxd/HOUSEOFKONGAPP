@@ -17,5 +17,5 @@
    ============================================================ */
 
 const YOUTUBE_CONFIG = {
-  apiKey: "" // optional — only needed for topic search, not for following a channel
+  apiKey: "AIzaSyBekglgwroaehIyCbQOFj8Tjs_yKcBQEP4" // optional — only needed for topic search, not for following a channel
 };
