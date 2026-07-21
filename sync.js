@@ -87,6 +87,35 @@ const ThroneSync = (() => {
       .subscribe();
   }
 
+  // ---------- SOCIAL FOLLOWS (YouTube channels + X accounts, Your Feed) ----------
+  async function loadSocialFollows(platform) {
+    const user = ThroneAuth.getUser();
+    const { data, error } = await supabaseClient
+      .from("social_follows").select("*")
+      .eq("user_id", user.id).eq("platform", platform)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return data;
+  }
+
+  async function addSocialFollow(platform, identifier, label) {
+    const user = ThroneAuth.getUser();
+    return supabaseClient.from("social_follows").insert({
+      user_id: user.id, platform, identifier, label: label || null
+    });
+  }
+
+  async function removeSocialFollow(id) {
+    return supabaseClient.from("social_follows").delete().eq("id", id);
+  }
+
+  function subscribeSocialFollows(onChange) {
+    return supabaseClient
+      .channel("social-follows-changes-" + uniqueChannelSuffix())
+      .on("postgres_changes", { event: "*", schema: "public", table: "social_follows" }, onChange)
+      .subscribe();
+  }
+
   // ---------- FOCUS SESSIONS (real time-tracking) ----------
   async function logFocusSession(taskTitle, durationMinutes) {
     const user = ThroneAuth.getUser();
@@ -724,6 +753,7 @@ const ThroneSync = (() => {
   return {
     loadTasks, addTask, toggleTask, removeTask, purgeOldCompletedTasks, subscribeTasks, setTaskReminder,
     loadTimeBlocks, addTimeBlock, removeTimeBlock, subscribeTimeBlocks,
+    loadSocialFollows, addSocialFollow, removeSocialFollow, subscribeSocialFollows,
     logFocusSession, loadFocusSessions,
     loadGoals, addGoal, updateGoalProgress, removeGoal, subscribeGoals,
     loadFitnessLogs, logMetric, subscribeFitness,

@@ -64,10 +64,27 @@ const ThroneKings = (() => {
     return res.json();
   }
 
+  // ---------- KING'S COLOSSEUM (YouTube channel, via RSS — no API key) ----------
+  async function getChannelVideos(channelId, count = 12) {
+    const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+    const key = THRONE_CONFIG.rss2jsonApiKey ? `&api_key=${THRONE_CONFIG.rss2jsonApiKey}` : "";
+    const endpoint = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}${key}&count=${count}`;
+    const res = await fetch(endpoint);
+    const data = await res.json();
+    if (data.status !== "ok") throw new Error(data.message || "YouTube feed error");
+    return (data.items || []).slice(0, count).map(item => ({
+      title: item.title,
+      link: item.link,
+      thumbnail: item.thumbnail || (item.enclosure && item.enclosure.link) || null,
+      published: item.pubDate
+    }));
+  }
+
   return {
     renderInstagramPosts,
     spotifyShowEmbedUrl,
     getCollectionStats,
-    getCollectionInfo
+    getCollectionInfo,
+    getChannelVideos
   };
 })();

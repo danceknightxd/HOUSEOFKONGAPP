@@ -132,6 +132,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     bootPlateCalculator();
     bootVault();
     bootSocial();
+    bootYouTubeFeed();
+    bootXFeed();
     bootCustomTopics();
     bootMarkets();
     bootSettings();
@@ -933,6 +935,165 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     await refreshPosts();
     ThroneSync.subscribeSocialPosts(refreshPosts);
+  }
+
+  // ---------- YOUTUBE FEED (Your Feed) ----------
+  // Combines whatever the current topic search turned up with the latest
+  // video from every followed channel into one sorted list — same idea
+  // as how the News view mixes multiple topics into one feed.
+  let ytFollows = [];
+  let ytTopicResults = [];
+  let ytFollowedResults = {}; // follow id -> that channel's latest videos
+
+  function renderYtFollowChips() {
+    const el = document.getElementById("yt-followed-list");
+    el.innerHTML = ytFollows.map(f => `
+      <span class="follow-chip">${f.label || f.identifier}<span class="fc-remove" data-id="${f.id}">✕</span></span>
+    `).join("");
+    el.querySelectorAll(".fc-remove").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        await ThroneSync.removeSocialFollow(btn.dataset.id);
+      });
+    });
+  }
+
+  function renderYtCombinedFeed() {
+    const combined = [...ytTopicResults, ...Object.values(ytFollowedResults).flat()];
+    combined.sort((a, b) => new Date(b.date) - new Date(a.date));
+    ThroneFeeds.renderNewsList(document.getElementById("yt-feed-list"), combined, "Search a topic or follow a channel to see videos here.");
+    document.getElementById("yt-feed-status").textContent = combined.length ? `${combined.length} videos` : "—";
+  }
+
+  async function refreshYtFollowedVideos() {
+    for (const f of ytFollows) {
+      try { ytFollowedResults[f.id] = await ThroneSocialFeeds.getYouTubeChannelVideos(f.identifier, 10); }
+      catch (e) { ytFollowedResults[f.id] = []; }
+    }
+    renderYtCombinedFeed();
+  }
+
+  async function bootYouTubeFeed() {
+    try { ytFollows = await ThroneSync.loadSocialFollows("youtube"); } catch (e) { ytFollows = []; }
+    renderYtFollowChips();
+    await refreshYtFollowedVideos();
+
+    document.getElementById("yt-topic-btn").addEventListener("click", async () => {
+      const input = document.getElementById("yt-topic-input");
+      const topic = input.value.trim();
+      if (!topic) return;
+      document.getElementById("yt-feed-status").textContent = "searching…";
+      try {
+        ytTopicResults = await ThroneSocialFeeds.searchYouTubeTopic(topic, 10);
+        renderYtCombinedFeed();
+      } catch (e) {
+        if (e.message === "NEEDS_KEY") {
+          document.getElementById("yt-feed-status").textContent = "needs API key";
+          ThroneFeeds.renderNewsList(document.getElementById("yt-feed-list"), [], "Add a free YouTube API key in youtube-config.js to search by topic — following a channel still works without one.");
+        } else {
+          document.getElementById("yt-feed-status").textContent = "search failed";
+        }
+      }
+    });
+
+    document.getElementById("yt-channel-btn").addEventListener("click", async () => {
+      const input = document.getElementById("yt-channel-input");
+      const identifier = input.value.trim();
+      if (!identifier) return;
+      try {
+        const preview = await ThroneSocialFeeds.getYouTubeChannelVideos(identifier, 1); // free — also validates it resolves
+        const label = (preview[0] && preview[0].source) || identifier;
+        await ThroneSync.addSocialFollow("youtube", identifier, label);
+        input.value = "";
+      } catch (e) {
+        alert(e.message === "NEEDS_KEY_FOR_HANDLE"
+          ? "Following by @handle needs a YouTube API key in youtube-config.js — or paste the channel ID directly (starts with UC...)."
+          : "Couldn't follow that channel: " + e.message);
+      }
+    });
+
+    ThroneSync.subscribeSocialFollows((payload) => {
+      const row = (payload.new && Object.keys(payload.new).length) ? payload.new : payload.old;
+      if (!row || row.platform !== "youtube") return;
+      (async () => {
+        try { ytFollows = await ThroneSync.loadSocialFollows("youtube"); } catch (e) { return; }
+        renderYtFollowChips();
+        await refreshYtFollowedVideos();
+      })();
+    });
+  }
+
+  // ---------- X / TWITTER FEED (Your Feed) ----------
+  let xFollows = [];
+  let xTopicResults = [];
+  let xFollowedResults = {};
+
+  function renderXFollowChips() {
+    const el = document.getElementById("x-followed-list");
+    el.innerHTML = xFollows.map(f => `
+      <span class="follow-chip">@${f.identifier}<span class="fc-remove" data-id="${f.id}">✕</span></span>
+    `).join("");
+    el.querySelectorAll(".fc-remove").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        await ThroneSync.removeSocialFollow(btn.dataset.id);
+      });
+    });
+  }
+
+  function renderXCombinedFeed() {
+    const combined = [...xTopicResults, ...Object.values(xFollowedResults).flat()];
+    combined.sort((a, b) => new Date(b.date) - new Date(a.date));
+    ThroneFeeds.renderNewsList(document.getElementById("x-feed-list"), combined, "Search a topic or follow an account to see posts here.");
+    document.getElementById("x-feed-status").textContent = combined.length ? `${combined.length} posts` : "—";
+  }
+
+  async function refreshXFollowedPosts() {
+    for (const f of xFollows) {
+      try { xFollowedResults[f.id] = await ThroneSocialFeeds.getXUserTweets(f.identifier, 10); }
+      catch (e) { xFollowedResults[f.id] = []; }
+    }
+    renderXCombinedFeed();
+  }
+
+  async function bootXFeed() {
+    try { xFollows = await ThroneSync.loadSocialFollows("x"); } catch (e) { xFollows = []; }
+    renderXFollowChips();
+    await refreshXFollowedPosts();
+
+    document.getElementById("x-topic-btn").addEventListener("click", async () => {
+      const input = document.getElementById("x-topic-input");
+      const topic = input.value.trim();
+      if (!topic) return;
+      document.getElementById("x-feed-status").textContent = "searching…";
+      try {
+        xTopicResults = await ThroneSocialFeeds.searchXTopic(topic, 10);
+        renderXCombinedFeed();
+      } catch (e) {
+        document.getElementById("x-feed-status").textContent = "search failed";
+        ThroneFeeds.renderNewsList(document.getElementById("x-feed-list"), [], e.message);
+      }
+    });
+
+    // No pre-validation call here on purpose — every X read costs real
+    // money (see X_API_SETUP.md), so this adds the follow directly rather
+    // than spending an extra paid call just to check it first. A bad
+    // handle just quietly shows no videos for that chip instead.
+    document.getElementById("x-account-btn").addEventListener("click", async () => {
+      const input = document.getElementById("x-account-input");
+      const handle = input.value.trim().replace(/^@/, "");
+      if (!handle) return;
+      input.value = "";
+      await ThroneSync.addSocialFollow("x", handle, "@" + handle);
+    });
+
+    ThroneSync.subscribeSocialFollows((payload) => {
+      const row = (payload.new && Object.keys(payload.new).length) ? payload.new : payload.old;
+      if (!row || row.platform !== "x") return;
+      (async () => {
+        try { xFollows = await ThroneSync.loadSocialFollows("x"); } catch (e) { return; }
+        renderXFollowChips();
+        await refreshXFollowedPosts();
+      })();
+    });
   }
 
   // ---------- CUSTOM NEWS TOPICS (user-typed, per-account) ----------
@@ -2233,6 +2394,31 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  async function renderColosseum() {
+    const grid = document.getElementById("colosseum-grid");
+    const statusEl = document.getElementById("colosseum-status");
+    try {
+      const videos = await ThroneKings.getChannelVideos(KINGS_CONFIG.colosseum.channelId, KINGS_CONFIG.colosseum.videoCount);
+      if (!videos.length) {
+        grid.innerHTML = `<div class="feed-empty">No videos found on the channel yet.</div>`;
+        statusEl.textContent = "0 videos";
+        return;
+      }
+      grid.innerHTML = videos.map(v => `
+        <a class="video-card" href="${v.link}" target="_blank" rel="noopener">
+          <div class="video-thumb">${v.thumbnail ? `<img src="${v.thumbnail}" alt="" loading="lazy">` : ""}</div>
+          <div class="video-card-body">
+            <div class="video-card-title">${v.title}</div>
+            <div class="video-card-date">${ThroneFeeds.timeAgo(v.published)}</div>
+          </div>
+        </a>`).join("");
+      statusEl.textContent = `${videos.length} latest`;
+    } catch (e) {
+      grid.innerHTML = `<div class="feed-empty">Couldn't load the channel feed right now.</div>`;
+      statusEl.textContent = "unavailable";
+    }
+  }
+
   async function bootKings() {
     document.querySelectorAll(".kwing-tab").forEach(tab => {
       tab.addEventListener("click", () => switchKwingTab(tab.dataset.tab));
@@ -2254,6 +2440,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     renderExhibitions();
+    renderColosseum();
     // ---- push notifications ----
     function urlBase64ToUint8Array(base64String) {
       const padding = "=".repeat((4 - base64String.length % 4) % 4);

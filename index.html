@@ -709,6 +709,36 @@
 
   .vault-thread-remove{ color:var(--ivory-dim); cursor:pointer; font-size:13px; flex-shrink:0; transition:color .2s; }
   .vault-thread-remove:hover{ color:#c98c7f; }
+
+  /* ---------- King's Colosseum video grid ---------- */
+  .video-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  @media (max-width:900px){ .video-grid{ grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:560px){ .video-grid{ grid-template-columns:1fr; } }
+  .video-card{
+    display:block; text-decoration:none; border-radius:12px; overflow:hidden;
+    background:var(--panel); border:1px solid var(--hairline); transition:border-color .2s, transform .2s;
+  }
+  .video-card:hover{ border-color:var(--gold-dim); transform:translateY(-2px); }
+  .video-thumb{ position:relative; width:100%; aspect-ratio:16/9; background:#000; overflow:hidden; }
+  .video-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .video-thumb::after{
+    content:'▶'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:22px; color:rgba(255,255,255,0.85); background:rgba(0,0,0,0.15);
+    opacity:0; transition:opacity .2s;
+  }
+  .video-card:hover .video-thumb::after{ opacity:1; }
+  .video-card-body{ padding:12px 14px; }
+  .video-card-title{ font-family:'Cormorant Garamond',serif; font-size:15px; color:var(--ivory); line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .video-card-date{ font-family:'Space Mono',monospace; font-size:10px; color:var(--ivory-dim); margin-top:6px; text-transform:uppercase; }
+
+  /* ---------- followed-source chips (YouTube/X feeds) ---------- */
+  .follow-chip{
+    display:inline-flex; align-items:center; gap:8px; padding:5px 10px 5px 12px;
+    border-radius:20px; border:1px solid var(--hairline); background:var(--panel-2);
+    font-family:'Space Mono',monospace; font-size:11px; color:var(--ivory-dim);
+  }
+  .follow-chip .fc-remove{ cursor:pointer; color:var(--ivory-dim); font-size:12px; transition:color .2s; }
+  .follow-chip .fc-remove:hover{ color:#c98c7f; }
 </style>
 </head>
 <body>
@@ -1288,6 +1318,34 @@
 
           <div class="panel-head" style="margin-bottom:12px;"><h3>Your Feed</h3></div>
           <div id="social-post-list"></div>
+
+          <div class="panel" style="margin-top:22px;">
+            <div class="panel-head"><h3>YouTube Feed</h3><span class="count mono" id="yt-feed-status">—</span></div>
+            <div class="add-row" style="margin-top:0;">
+              <input type="text" id="yt-topic-input" placeholder="Search a topic...">
+              <button id="yt-topic-btn">Search</button>
+            </div>
+            <div class="add-row">
+              <input type="text" id="yt-channel-input" placeholder="Follow a channel (ID starting UC..., or @handle with a key set)...">
+              <button id="yt-channel-btn">Follow</button>
+            </div>
+            <div id="yt-followed-list" style="display:flex; flex-wrap:wrap; gap:8px; margin:4px 0 14px;"></div>
+            <div id="yt-feed-list"></div>
+          </div>
+
+          <div class="panel" style="margin-top:18px;">
+            <div class="panel-head"><h3>X / Twitter Feed</h3><span class="count mono" id="x-feed-status">—</span></div>
+            <div class="add-row" style="margin-top:0;">
+              <input type="text" id="x-topic-input" placeholder="Search a topic...">
+              <button id="x-topic-btn">Search</button>
+            </div>
+            <div class="add-row">
+              <input type="text" id="x-account-input" placeholder="Follow an account (@handle)...">
+              <button id="x-account-btn">Follow</button>
+            </div>
+            <div id="x-followed-list" style="display:flex; flex-wrap:wrap; gap:8px; margin:4px 0 14px;"></div>
+            <div id="x-feed-list"></div>
+          </div>
         </div>
       </div>
 
@@ -1340,7 +1398,7 @@
 
     <!-- ===== KING'S WING ===== -->
     <section class="view" id="view-kings">
-      <div class="eyebrow">Beyond the Blogs</div>
+      <div class="eyebrow">Beyond the Realms</div>
       <h1 class="page-title">The King's Wing</h1>
       <div class="page-sub">Gallery, message, and exhibitions — the rest of the empire.</div>
 
@@ -1348,12 +1406,13 @@
         <div class="chip on kwing-tab" data-tab="gallery">King's Gallery</div>
         <div class="chip kwing-tab" data-tab="message">King's Message</div>
         <div class="chip kwing-tab" data-tab="exhibitions">King's Art Exhibitions</div>
+        <div class="chip kwing-tab" data-tab="colosseum">King's Colosseum</div>
       </div>
 
       <!-- GALLERY -->
       <div class="kwing-panel" id="kwing-gallery">
         <div class="panel" style="margin-bottom:20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap;">
-          <div class="kingdom-seal" style="width:52px; height:52px; font-size:20px; border-color:#c9a84c; flex-shrink:0;">IG</div>
+          <div class="kingdom-seal" style="width:52px; height:52px; border-color:#c9a84c; flex-shrink:0; overflow:hidden; padding:0;"><img src="seal-portrait.jpg" alt="" style="width:100%; height:100%; object-fit:cover; display:block;"></div>
           <div class="gallery-handle-row" style="flex:1 1 200px; min-width:0;">
             <h4 style="font-family:'Cinzel',serif; font-size:17px; color:var(--ivory); margin-bottom:4px;">@chimp_magnettrillionaireclub</h4>
             <div style="font-size:14px; color:var(--ivory-dim); font-style:italic;">Art, visuals, and the trillionaire club — straight from the source.</div>
@@ -1383,6 +1442,11 @@
       <!-- EXHIBITIONS -->
       <div class="kwing-panel" id="kwing-exhibitions" style="display:none;">
         <div class="grid" id="exhibition-cards"></div>
+      </div>
+
+      <div class="kwing-panel" id="kwing-colosseum" style="display:none;">
+        <div class="panel-head" style="margin-bottom:14px;"><h3>Latest from the Streams</h3><span class="count mono" id="colosseum-status">loading…</span></div>
+        <div class="video-grid" id="colosseum-grid"></div>
       </div>
     </section>
 
@@ -1682,6 +1746,8 @@
 <script src="webrtc.js"></script>
 <script src="kings-config.js"></script>
 <script src="kings.js"></script>
+<script src="youtube-config.js"></script>
+<script src="social-feeds.js"></script>
 <script src="push-config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="tasksplus.js"></script>

@@ -35,5 +35,21 @@ const KINGS_CONFIG = {
       { slug: "CHIMPmagnetTRILLIONAIREclubMANSION", label: "The Mansion" },
       { slug: "CHIMPmagnetTRILLIONAIREclubPENTHOUSE", label: "The Penthouse" }
     ]
+  },
+
+  colosseum: {
+    title: "King's Colosseum",
+    // Resolved from https://www.youtube.com/@HouseOfKong/streams — channel
+    // IDs are permanent even if the @handle ever changes, so this is safer
+    // to rely on long-term than the handle itself.
+    channelId: "UCD3LZfjwrkJc217kGHEv1YQ",
+    tagline: "The latest streams, straight from the channel — no key needed.",
+    videoCount: 12
+    // NOTE: this pulls the channel's general upload RSS feed (keyless, via
+    // rss2json — same trick config.js's bloggerFeeds use). YouTube doesn't
+    // publish a separate feed just for the "Streams" tab specifically, so
+    // if the channel ever posts non-stream videos too, those would show
+    // here as well. Good enough for a channel that's primarily streams;
+    // flag it if that ever becomes a real mismatch.
   }
 };
