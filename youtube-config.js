@@ -26,5 +26,5 @@
    ============================================================ */
 
 const YOUTUBE_CONFIG = {
-  apiKey: ""
+  apiKey: "AIzaSyBekglgwroaehIyCbQOFj8Tjs_yKcBQEP4"
 };
