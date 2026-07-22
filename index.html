@@ -1321,30 +1321,17 @@
 
           <div class="panel" style="margin-top:22px;">
             <div class="panel-head"><h3>YouTube Feed</h3><span class="count mono" id="yt-feed-status">—</span></div>
+            <div class="chip-row" id="yt-topic-chip-row" style="margin-bottom:10px;"></div>
             <div class="add-row" style="margin-top:0;">
-              <input type="text" id="yt-topic-input" placeholder="Search a topic...">
-              <button id="yt-topic-btn">Search</button>
+              <input type="text" id="yt-topic-input" placeholder="Add a topic (press Enter)...">
+              <button id="yt-topic-btn">Add</button>
             </div>
             <div class="add-row">
-              <input type="text" id="yt-channel-input" placeholder="Follow a channel (ID starting UC..., or @handle with a key set)...">
+              <input type="text" id="yt-channel-input" placeholder="Follow a channel (@handle or channel ID)...">
               <button id="yt-channel-btn">Follow</button>
             </div>
             <div id="yt-followed-list" style="display:flex; flex-wrap:wrap; gap:8px; margin:4px 0 14px;"></div>
             <div id="yt-feed-list"></div>
-          </div>
-
-          <div class="panel" style="margin-top:18px;">
-            <div class="panel-head"><h3>X / Twitter Feed</h3><span class="count mono" id="x-feed-status">—</span></div>
-            <div class="add-row" style="margin-top:0;">
-              <input type="text" id="x-topic-input" placeholder="Search a topic...">
-              <button id="x-topic-btn">Search</button>
-            </div>
-            <div class="add-row">
-              <input type="text" id="x-account-input" placeholder="Follow an account (@handle)...">
-              <button id="x-account-btn">Follow</button>
-            </div>
-            <div id="x-followed-list" style="display:flex; flex-wrap:wrap; gap:8px; margin:4px 0 14px;"></div>
-            <div id="x-feed-list"></div>
           </div>
         </div>
       </div>
@@ -1745,8 +1732,8 @@
 <script src="webrtc-config.js"></script>
 <script src="webrtc.js"></script>
 <script src="kings-config.js"></script>
-<script src="kings.js"></script>
 <script src="youtube-config.js"></script>
+<script src="kings.js"></script>
 <script src="social-feeds.js"></script>
 <script src="push-config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>

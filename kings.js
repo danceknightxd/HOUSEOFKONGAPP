@@ -64,19 +64,33 @@ const ThroneKings = (() => {
     return res.json();
   }
 
-  // ---------- KING'S COLOSSEUM (YouTube channel, via RSS — no API key) ----------
+  // ---------- KING'S COLOSSEUM (YouTube channel) ----------
+  // Uses the real YouTube Data API v3 (needs YOUTUBE_CONFIG.apiKey) —
+  // an earlier version used YouTube's free RSS feed instead, but that
+  // endpoint has ongoing, widely-reported reliability problems
+  // (intermittent failures even for active channels), independent of
+  // anything in this app. This is the reliable path: channels.list to
+  // find the channel's "uploads" playlist (1 unit), then
+  // playlistItems.list to read its contents (1 unit) — 2 units total
+  // per refresh, cheap against the 10,000/day free quota.
   async function getChannelVideos(channelId, count = 12) {
-    const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
-    const key = THRONE_CONFIG.rss2jsonApiKey ? `&api_key=${THRONE_CONFIG.rss2jsonApiKey}` : "";
-    const endpoint = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}${key}&count=${count}`;
-    const res = await fetch(endpoint);
-    const data = await res.json();
-    if (data.status !== "ok") throw new Error(data.message || "YouTube feed error");
-    return (data.items || []).slice(0, count).map(item => ({
-      title: item.title,
-      link: item.link,
-      thumbnail: item.thumbnail || (item.enclosure && item.enclosure.link) || null,
-      published: item.pubDate
+    if (!YOUTUBE_CONFIG.apiKey) throw new Error("NEEDS_KEY");
+
+    const chRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${channelId}&key=${YOUTUBE_CONFIG.apiKey}`);
+    const chData = await chRes.json();
+    if (chData.error) throw new Error(chData.error.message || "YouTube API error");
+    const uploadsPlaylistId = chData.items && chData.items[0] && chData.items[0].contentDetails.relatedPlaylists.uploads;
+    if (!uploadsPlaylistId) throw new Error("Channel not found.");
+
+    const plRes = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${uploadsPlaylistId}&maxResults=${count}&key=${YOUTUBE_CONFIG.apiKey}`);
+    const plData = await plRes.json();
+    if (plData.error) throw new Error(plData.error.message || "YouTube API error");
+
+    return (plData.items || []).map(item => ({
+      title: item.snippet.title,
+      link: `https://www.youtube.com/watch?v=${item.snippet.resourceId.videoId}`,
+      thumbnail: (item.snippet.thumbnails && (item.snippet.thumbnails.medium || item.snippet.thumbnails.default) || {}).url || null,
+      published: item.snippet.publishedAt
     }));
   }
 

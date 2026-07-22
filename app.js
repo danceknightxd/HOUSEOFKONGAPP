@@ -133,7 +133,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     bootVault();
     bootSocial();
     bootYouTubeFeed();
-    bootXFeed();
     bootCustomTopics();
     bootMarkets();
     bootSettings();
@@ -938,160 +937,130 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // ---------- YOUTUBE FEED (Your Feed) ----------
-  // Combines whatever the current topic search turned up with the latest
-  // video from every followed channel into one sorted list — same idea
-  // as how the News view mixes multiple topics into one feed.
-  let ytFollows = [];
-  let ytTopicResults = [];
-  let ytFollowedResults = {}; // follow id -> that channel's latest videos
+  // Combines followed channels' latest uploads with every active topic
+  // chip's results into one sorted list. Topic chips persist the same
+  // way News' custom topic chips do (typed once, remembered from then
+  // on) — same table (social_follows), just a different platform value
+  // ('youtube-topic' vs 'youtube' for a channel).
+  let ytChannelFollows = [];
+  let ytTopicFollows = [];
+  let ytFollowedResults = {};   // channel follow id -> its latest videos
+  let ytTopicResults = {};      // topic follow id -> that topic's results
 
-  function renderYtFollowChips() {
+  function ytHasKey() { return !!(YOUTUBE_CONFIG.apiKey && YOUTUBE_CONFIG.apiKey.trim()); }
+
+  function renderYtChannelChips() {
     const el = document.getElementById("yt-followed-list");
-    el.innerHTML = ytFollows.map(f => `
+    el.innerHTML = ytChannelFollows.map(f => `
       <span class="follow-chip">${f.label || f.identifier}<span class="fc-remove" data-id="${f.id}">✕</span></span>
     `).join("");
     el.querySelectorAll(".fc-remove").forEach(btn => {
-      btn.addEventListener("click", async () => {
+      btn.addEventListener("click", async () => { await ThroneSync.removeSocialFollow(btn.dataset.id); });
+    });
+  }
+
+  function renderYtTopicChips() {
+    const el = document.getElementById("yt-topic-chip-row");
+    el.innerHTML = ytTopicFollows.map(f => `
+      <span class="chip on">${f.identifier}<span class="fc-remove" data-id="${f.id}" style="margin-left:6px;">✕</span></span>
+    `).join("");
+    el.querySelectorAll(".fc-remove").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
         await ThroneSync.removeSocialFollow(btn.dataset.id);
       });
     });
   }
 
   function renderYtCombinedFeed() {
-    const combined = [...ytTopicResults, ...Object.values(ytFollowedResults).flat()];
+    const combined = [...Object.values(ytTopicResults).flat(), ...Object.values(ytFollowedResults).flat()];
     combined.sort((a, b) => new Date(b.date) - new Date(a.date));
-    ThroneFeeds.renderNewsList(document.getElementById("yt-feed-list"), combined, "Search a topic or follow a channel to see videos here.");
+    ThroneFeeds.renderNewsList(document.getElementById("yt-feed-list"), combined, "Add a topic or follow a channel above to see videos here.");
     document.getElementById("yt-feed-status").textContent = combined.length ? `${combined.length} videos` : "—";
   }
 
-  async function refreshYtFollowedVideos() {
-    for (const f of ytFollows) {
+  function showYtNeedsKeyNotice() {
+    document.getElementById("yt-feed-status").textContent = "needs API key";
+    ThroneFeeds.renderNewsList(document.getElementById("yt-feed-list"), [],
+      "Add a free YouTube API key in <code>youtube-config.js</code> to enable this feed — powers both topic search and following a channel. See the setup notes in that file.");
+  }
+
+  async function refreshYtChannelVideos() {
+    for (const f of ytChannelFollows) {
       try { ytFollowedResults[f.id] = await ThroneSocialFeeds.getYouTubeChannelVideos(f.identifier, 10); }
       catch (e) { ytFollowedResults[f.id] = []; }
     }
     renderYtCombinedFeed();
   }
 
-  async function bootYouTubeFeed() {
-    try { ytFollows = await ThroneSync.loadSocialFollows("youtube"); } catch (e) { ytFollows = []; }
-    renderYtFollowChips();
-    await refreshYtFollowedVideos();
+  async function refreshYtTopicResults() {
+    for (const f of ytTopicFollows) {
+      try { ytTopicResults[f.id] = await ThroneSocialFeeds.searchYouTubeTopic(f.identifier, 10); }
+      catch (e) { ytTopicResults[f.id] = []; }
+    }
+    renderYtCombinedFeed();
+  }
 
-    document.getElementById("yt-topic-btn").addEventListener("click", async () => {
+  async function bootYouTubeFeed() {
+    try {
+      ytChannelFollows = await ThroneSync.loadSocialFollows("youtube");
+      ytTopicFollows = await ThroneSync.loadSocialFollows("youtube-topic");
+    } catch (e) { ytChannelFollows = []; ytTopicFollows = []; }
+    renderYtChannelChips();
+    renderYtTopicChips();
+
+    if (!ytHasKey()) {
+      showYtNeedsKeyNotice();
+    } else {
+      await refreshYtChannelVideos();
+      await refreshYtTopicResults();
+    }
+
+    async function submitYtTopic() {
       const input = document.getElementById("yt-topic-input");
       const topic = input.value.trim();
       if (!topic) return;
-      document.getElementById("yt-feed-status").textContent = "searching…";
-      try {
-        ytTopicResults = await ThroneSocialFeeds.searchYouTubeTopic(topic, 10);
-        renderYtCombinedFeed();
-      } catch (e) {
-        if (e.message === "NEEDS_KEY") {
-          document.getElementById("yt-feed-status").textContent = "needs API key";
-          ThroneFeeds.renderNewsList(document.getElementById("yt-feed-list"), [], "Add a free YouTube API key in youtube-config.js to search by topic — following a channel still works without one.");
-        } else {
-          document.getElementById("yt-feed-status").textContent = "search failed";
-        }
-      }
+      input.value = "";
+      if (!ytHasKey()) { showYtNeedsKeyNotice(); return; }
+      const { error } = await ThroneSync.addSocialFollow("youtube-topic", topic, topic);
+      if (error) return;
+      ytTopicFollows = await ThroneSync.loadSocialFollows("youtube-topic");
+      renderYtTopicChips();
+      await refreshYtTopicResults();
+    }
+    document.getElementById("yt-topic-btn").addEventListener("click", submitYtTopic);
+    document.getElementById("yt-topic-input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") submitYtTopic();
     });
 
     document.getElementById("yt-channel-btn").addEventListener("click", async () => {
       const input = document.getElementById("yt-channel-input");
       const identifier = input.value.trim();
       if (!identifier) return;
+      if (!ytHasKey()) { showYtNeedsKeyNotice(); return; }
       try {
-        const preview = await ThroneSocialFeeds.getYouTubeChannelVideos(identifier, 1); // free — also validates it resolves
+        const preview = await ThroneSocialFeeds.getYouTubeChannelVideos(identifier, 1);
         const label = (preview[0] && preview[0].source) || identifier;
         await ThroneSync.addSocialFollow("youtube", identifier, label);
         input.value = "";
       } catch (e) {
-        alert(e.message === "NEEDS_KEY_FOR_HANDLE"
-          ? "Following by @handle needs a YouTube API key in youtube-config.js — or paste the channel ID directly (starts with UC...)."
-          : "Couldn't follow that channel: " + e.message);
+        alert("Couldn't follow that channel: " + e.message);
       }
     });
 
     ThroneSync.subscribeSocialFollows((payload) => {
       const row = (payload.new && Object.keys(payload.new).length) ? payload.new : payload.old;
-      if (!row || row.platform !== "youtube") return;
+      if (!row) return;
       (async () => {
-        try { ytFollows = await ThroneSync.loadSocialFollows("youtube"); } catch (e) { return; }
-        renderYtFollowChips();
-        await refreshYtFollowedVideos();
-      })();
-    });
-  }
-
-  // ---------- X / TWITTER FEED (Your Feed) ----------
-  let xFollows = [];
-  let xTopicResults = [];
-  let xFollowedResults = {};
-
-  function renderXFollowChips() {
-    const el = document.getElementById("x-followed-list");
-    el.innerHTML = xFollows.map(f => `
-      <span class="follow-chip">@${f.identifier}<span class="fc-remove" data-id="${f.id}">✕</span></span>
-    `).join("");
-    el.querySelectorAll(".fc-remove").forEach(btn => {
-      btn.addEventListener("click", async () => {
-        await ThroneSync.removeSocialFollow(btn.dataset.id);
-      });
-    });
-  }
-
-  function renderXCombinedFeed() {
-    const combined = [...xTopicResults, ...Object.values(xFollowedResults).flat()];
-    combined.sort((a, b) => new Date(b.date) - new Date(a.date));
-    ThroneFeeds.renderNewsList(document.getElementById("x-feed-list"), combined, "Search a topic or follow an account to see posts here.");
-    document.getElementById("x-feed-status").textContent = combined.length ? `${combined.length} posts` : "—";
-  }
-
-  async function refreshXFollowedPosts() {
-    for (const f of xFollows) {
-      try { xFollowedResults[f.id] = await ThroneSocialFeeds.getXUserTweets(f.identifier, 10); }
-      catch (e) { xFollowedResults[f.id] = []; }
-    }
-    renderXCombinedFeed();
-  }
-
-  async function bootXFeed() {
-    try { xFollows = await ThroneSync.loadSocialFollows("x"); } catch (e) { xFollows = []; }
-    renderXFollowChips();
-    await refreshXFollowedPosts();
-
-    document.getElementById("x-topic-btn").addEventListener("click", async () => {
-      const input = document.getElementById("x-topic-input");
-      const topic = input.value.trim();
-      if (!topic) return;
-      document.getElementById("x-feed-status").textContent = "searching…";
-      try {
-        xTopicResults = await ThroneSocialFeeds.searchXTopic(topic, 10);
-        renderXCombinedFeed();
-      } catch (e) {
-        document.getElementById("x-feed-status").textContent = "search failed";
-        ThroneFeeds.renderNewsList(document.getElementById("x-feed-list"), [], e.message);
-      }
-    });
-
-    // No pre-validation call here on purpose — every X read costs real
-    // money (see X_API_SETUP.md), so this adds the follow directly rather
-    // than spending an extra paid call just to check it first. A bad
-    // handle just quietly shows no videos for that chip instead.
-    document.getElementById("x-account-btn").addEventListener("click", async () => {
-      const input = document.getElementById("x-account-input");
-      const handle = input.value.trim().replace(/^@/, "");
-      if (!handle) return;
-      input.value = "";
-      await ThroneSync.addSocialFollow("x", handle, "@" + handle);
-    });
-
-    ThroneSync.subscribeSocialFollows((payload) => {
-      const row = (payload.new && Object.keys(payload.new).length) ? payload.new : payload.old;
-      if (!row || row.platform !== "x") return;
-      (async () => {
-        try { xFollows = await ThroneSync.loadSocialFollows("x"); } catch (e) { return; }
-        renderXFollowChips();
-        await refreshXFollowedPosts();
+        if (row.platform === "youtube") {
+          ytChannelFollows = await ThroneSync.loadSocialFollows("youtube");
+          renderYtChannelChips();
+          if (ytHasKey()) await refreshYtChannelVideos();
+        } else if (row.platform === "youtube-topic") {
+          ytTopicFollows = await ThroneSync.loadSocialFollows("youtube-topic");
+          renderYtTopicChips();
+          if (ytHasKey()) await refreshYtTopicResults();
+        }
       })();
     });
   }
@@ -2414,8 +2383,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         </a>`).join("");
       statusEl.textContent = `${videos.length} latest`;
     } catch (e) {
-      grid.innerHTML = `<div class="feed-empty">Couldn't load the channel feed right now.</div>`;
-      statusEl.textContent = "unavailable";
+      if (e.message === "NEEDS_KEY") {
+        grid.innerHTML = `<div class="feed-empty">Add a free YouTube API key in <code>youtube-config.js</code> to show this feed — see the setup notes in that file.</div>`;
+        statusEl.textContent = "needs API key";
+      } else {
+        grid.innerHTML = `<div class="feed-empty">Couldn't load the channel feed right now — check that your YouTube API key in <code>youtube-config.js</code> is valid.</div>`;
+        statusEl.textContent = "unavailable";
+      }
     }
   }
 
