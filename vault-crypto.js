@@ -188,9 +188,63 @@ const VaultCrypto = (() => {
   }
 
   // ---------- shared secret derivation ----------
-  // Deriving with MY private key + THEIR public key gives a shared
-  // AES key that only the two of us can ever produce (ECDH property).
-  async function deriveSharedKey(theirPublicKeyBase64) {
+  // IMPORTANT — what changed here and why, and what this does NOT do:
+  //
+  // The original design derived ONE static AES-GCM key per conversation
+  // (straight from ECDH(myPrivate, theirPublic)) and reused it for every
+  // message, forever. That's a real gap versus what "end-to-end
+  // encrypted" implies today: if either person's private key is ever
+  // compromised, every message they've ever exchanged — past and future
+  // — becomes readable with that one key.
+  //
+  // What this version does instead: derive a per-CONVERSATION root
+  // secret via ECDH (same as before), but never use it directly to
+  // encrypt. Each message instead gets its own one-time AES-GCM key,
+  // derived from the root secret + a random salt via HKDF (salt travels
+  // with the ciphertext, same as the IV already does — it's not secret,
+  // it's what makes each derived key unique). This is real, meaningful
+  // security hygiene: no single key ever encrypts more than one message,
+  // which is good AES-GCM practice regardless, and bounds what a single
+  // recovered message key can expose to that one message.
+  //
+  // What this is NOT: real forward secrecy (à la Signal's Double
+  // Ratchet). True forward secrecy needs state that both sides advance
+  // and can never wind backward — and this app's multi-device design
+  // (the SAME private key restored via passphrase onto every device,
+  // by design, so any device can read your full history) is
+  // fundamentally incompatible with that without a real redesign: any
+  // ratcheting state would need to somehow stay in sync across every
+  // device sharing one identity, which Signal itself avoids by giving
+  // every DEVICE its own separate identity and session instead of
+  // sharing one static key. Retrofitting that safely is a genuine
+  // architecture change, not something to bolt on in one pass — so
+  // this ships the real, bounded improvement now, and leaves true
+  // forward secrecy as a scoped future project if that's ever wanted.
+  //
+  // Backward compatible: any message stored before this change has no
+  // salt, and decryptMessage() below still reads those correctly via
+  // the untouched legacy path — nothing in your existing history
+  // becomes unreadable.
+  async function deriveRootSecretBits(theirPublicKeyBase64) {
+    const myPrivateKey = await importOwnPrivateKey();
+    const theirPublicKey = await importRemotePublicKey(theirPublicKeyBase64);
+    return crypto.subtle.deriveBits({ name: "ECDH", public: theirPublicKey }, myPrivateKey, 256);
+  }
+
+  async function deriveMessageKey(rootSecretBits, saltBuf) {
+    const hkdfBaseKey = await crypto.subtle.importKey("raw", rootSecretBits, "HKDF", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey(
+      { name: "HKDF", hash: "SHA-256", salt: saltBuf, info: new TextEncoder().encode("throne-vault-message-key") },
+      hkdfBaseKey,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt", "decrypt"]
+    );
+  }
+
+  // Legacy path — reproduces the original static per-conversation key
+  // exactly, so messages encrypted before this change still decrypt.
+  async function deriveSharedKeyLegacy(theirPublicKeyBase64) {
     const myPrivateKey = await importOwnPrivateKey();
     const theirPublicKey = await importRemotePublicKey(theirPublicKeyBase64);
     return crypto.subtle.deriveKey(
@@ -204,25 +258,30 @@ const VaultCrypto = (() => {
 
   // ---------- message encrypt/decrypt ----------
   async function encryptMessage(plaintext, theirPublicKeyBase64) {
-    const sharedKey = await deriveSharedKey(theirPublicKeyBase64);
+    const rootBits = await deriveRootSecretBits(theirPublicKeyBase64);
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const messageKey = await deriveMessageKey(rootBits, salt);
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const encoded = new TextEncoder().encode(plaintext);
     const ciphertextBuf = await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv }, sharedKey, encoded
+      { name: "AES-GCM", iv }, messageKey, encoded
     );
     return {
       ciphertext: bufToBase64(ciphertextBuf),
-      iv: bufToBase64(iv)
+      iv: bufToBase64(iv),
+      salt: bufToBase64(salt.buffer)
     };
   }
 
-  async function decryptMessage(ciphertextBase64, ivBase64, theirPublicKeyBase64) {
-    const sharedKey = await deriveSharedKey(theirPublicKeyBase64);
+  async function decryptMessage(ciphertextBase64, ivBase64, theirPublicKeyBase64, saltBase64) {
     const iv = new Uint8Array(base64ToBuf(ivBase64));
     const ciphertextBuf = base64ToBuf(ciphertextBase64);
-    const plainBuf = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv }, sharedKey, ciphertextBuf
-    );
+
+    const key = saltBase64
+      ? await deriveMessageKey(await deriveRootSecretBits(theirPublicKeyBase64), new Uint8Array(base64ToBuf(saltBase64)))
+      : await deriveSharedKeyLegacy(theirPublicKeyBase64); // pre-upgrade message, no salt stored
+
+    const plainBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertextBuf);
     return new TextDecoder().decode(plainBuf);
   }
 

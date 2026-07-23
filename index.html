@@ -361,6 +361,10 @@
   @keyframes loadingPulse{ 0%,100%{ box-shadow:0 0 30px rgba(201,168,76,0.24); } 50%{ box-shadow:0 0 64px rgba(201,168,76,0.5); } }
   .loading-brand{ font-size:30px; letter-spacing:.14em; color:var(--ivory); margin-bottom:10px; text-shadow:0 0 24px rgba(201,168,76,0.2); }
   .loading-brand span{ color:var(--gold); }
+  .loading-brand-tag{
+    font-family:'Cinzel',serif; font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--gold); margin-bottom:14px;
+  }
   .loading-msg{ font-family:'Space Mono',monospace; font-size:12px; letter-spacing:.1em; color:var(--ivory-dim); text-transform:uppercase; }
   #passphrase-gate{
     position:fixed; inset:0; z-index:1001;
@@ -401,6 +405,10 @@
   }
   .auth-box .seal-lg img{ width:100%; height:100%; object-fit:cover; display:block; }
   .auth-box h2{ font-family:'Bebas Neue',sans-serif; font-size:30px; letter-spacing:.04em; color:var(--ivory); margin-bottom:6px; }
+  .auth-box .brand-tag{
+    font-family:'Cinzel',serif; font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--gold); margin-bottom:14px; position:relative; z-index:1;
+  }
   .auth-box .sub{ font-size:15px; color:var(--ivory-dim); font-style:italic; margin-bottom:22px; }
   .auth-box input{
     position:relative; z-index:1;
@@ -710,6 +718,89 @@
   .vault-thread-remove{ color:var(--ivory-dim); cursor:pointer; font-size:13px; flex-shrink:0; transition:color .2s; }
   .vault-thread-remove:hover{ color:#c98c7f; }
 
+  #offline-banner{
+    display:none; position:fixed; top:0; left:0; right:0; z-index:1500;
+    padding:9px 16px; text-align:center; background:#3a2f14; color:var(--gold-bright);
+    font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.04em;
+    border-bottom:1px solid var(--gold-dim);
+  }
+  #offline-banner.show{ display:block; }
+
+  /* ---------- notification bell ---------- */
+  .notif-bell-wrap{ position:relative; }
+  .notif-bell{ font-size:18px; cursor:pointer; position:relative; filter:grayscale(1) brightness(1.6); opacity:.8; transition:opacity .2s; }
+  .notif-bell:hover{ opacity:1; }
+  .notif-badge{
+    position:absolute; top:-6px; right:-8px; min-width:16px; height:16px; padding:0 4px; border-radius:8px;
+    background:#c98c7f; color:#000; font-family:'Space Mono',monospace; font-size:9px; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .notif-dropdown{
+    display:none; position:absolute; top:calc(100% + 12px); right:0; width:320px; max-width:80vw; max-height:420px; overflow-y:auto;
+    background:var(--panel); border:1px solid var(--hairline); border-radius:12px; box-shadow:0 20px 50px rgba(0,0,0,0.5); z-index:200;
+  }
+  .notif-dropdown.show{ display:block; }
+  .notif-dropdown-head{ padding:14px 16px; font-family:'Cinzel',serif; font-size:13px; color:var(--gold-bright); letter-spacing:.05em; text-transform:uppercase; border-bottom:1px solid var(--hairline); }
+  .notif-item{ padding:12px 16px; border-bottom:1px solid var(--hairline); cursor:pointer; }
+  .notif-item:last-child{ border-bottom:none; }
+  .notif-item:hover{ background:rgba(255,255,255,0.03); }
+  .notif-item.unread{ background:rgba(201,168,76,0.05); }
+  .notif-item .n-title{ font-family:'Cormorant Garamond',serif; font-size:14px; color:var(--ivory); font-weight:600; }
+  .notif-item .n-body{ font-size:13px; color:var(--ivory-dim); margin-top:2px; }
+  .notif-item .n-time{ font-family:'Space Mono',monospace; font-size:9px; color:var(--ivory-dim); margin-top:6px; text-transform:uppercase; }
+  @media (max-width:640px){ .notif-dropdown{ position:fixed; top:auto; bottom:0; left:0; right:0; width:100%; max-width:100%; max-height:70vh; border-radius:16px 16px 0 0; } }
+
+  /* ---------- global search ---------- */
+  .search-icon{ font-size:16px; cursor:pointer; opacity:.75; transition:opacity .2s; }
+  .search-icon:hover{ opacity:1; }
+  #search-overlay{
+    display:none; position:fixed; inset:0; z-index:1400; background:rgba(0,0,0,0.7);
+    align-items:flex-start; justify-content:center; padding-top:12vh;
+  }
+  #search-overlay.show{ display:flex; }
+  .search-box{
+    width:520px; max-width:90vw; max-height:70vh; overflow:hidden; display:flex; flex-direction:column;
+    background:var(--panel); border:1px solid var(--gold-dim); border-radius:14px; box-shadow:0 30px 80px rgba(0,0,0,0.6);
+  }
+  .search-box input{
+    width:100%; padding:18px 20px; border:none; border-bottom:1px solid var(--hairline); background:transparent;
+    color:var(--ivory); font-family:'Cormorant Garamond',serif; font-size:18px;
+  }
+  .search-box input:focus{ outline:none; }
+  .search-hint{ padding:8px 20px; font-family:'Space Mono',monospace; font-size:9.5px; color:var(--ivory-dim); border-bottom:1px solid var(--hairline); }
+  #search-results{ overflow-y:auto; }
+  .search-result{ padding:12px 20px; border-bottom:1px solid var(--hairline); cursor:pointer; display:flex; align-items:center; gap:10px; }
+  .search-result:hover{ background:rgba(255,255,255,0.03); }
+  .search-result .sr-type{
+    font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.06em; text-transform:uppercase; color:var(--gold-bright);
+    border:1px solid var(--gold-dim); border-radius:6px; padding:2px 6px; flex-shrink:0;
+  }
+  .search-result .sr-title{ font-family:'Cormorant Garamond',serif; font-size:15px; color:var(--ivory); }
+
+  /* ---------- onboarding ---------- */
+  #onboard-overlay{
+    display:none; position:fixed; inset:0; z-index:1600; background:rgba(0,0,0,0.82);
+    align-items:center; justify-content:center; padding:20px;
+  }
+  #onboard-overlay.show{ display:flex; }
+  .onboard-box{
+    width:420px; max-width:100%; padding:40px 34px; text-align:center;
+    background:linear-gradient(165deg, var(--panel), var(--panel-2));
+    border:1px solid var(--gold-dim); border-radius:18px; box-shadow:0 30px 80px rgba(0,0,0,0.6);
+  }
+  .onboard-eyebrow{ font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.2em; color:var(--gold); text-transform:uppercase; margin-bottom:10px; }
+  .onboard-box h2{ font-family:'Bebas Neue',sans-serif; font-size:30px; letter-spacing:.03em; color:var(--ivory); margin-bottom:14px; }
+  .onboard-box p{ font-size:16px; line-height:1.5; color:var(--ivory-dim); margin-bottom:24px; }
+  .onboard-kbd{ font-family:'Space Mono',monospace; background:rgba(255,255,255,0.08); border:1px solid var(--hairline); border-radius:5px; padding:1px 7px; color:var(--gold-bright); }
+  .onboard-dots{ display:flex; gap:7px; justify-content:center; margin-bottom:20px; }
+  .onboard-dot{ width:6px; height:6px; border-radius:50%; background:var(--hairline); }
+  .onboard-dot.on{ background:var(--gold); }
+  .onboard-actions{ display:flex; justify-content:space-between; align-items:center; }
+  .onboard-actions button{ background:none; border:none; cursor:pointer; font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; }
+  #onboard-skip{ color:var(--ivory-dim); }
+  #onboard-skip:hover{ color:var(--ivory); }
+  #onboard-next{ padding:10px 24px; border-radius:9px; background:var(--gold); color:#000; }
+
   /* ---------- King's Colosseum video grid ---------- */
   .video-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
   @media (max-width:900px){ .video-grid{ grid-template-columns:repeat(2,1fr); } }
@@ -748,6 +839,7 @@
     <img src="icon-512.png" alt="">
   </div>
   <div class="loading-brand crest">THE <span>THRONE</span></div>
+  <div class="loading-brand-tag">The House of Kong</div>
   <div class="loading-msg" id="loading-msg">Entering the court...</div>
 </div>
 
@@ -760,6 +852,7 @@
   <div class="auth-box">
     <div class="seal-lg"><img src="seal-portrait.jpg" alt="The Throne"></div>
     <h2 class="crest">THE THRONE</h2>
+    <div class="brand-tag">The House of Kong</div>
     <div class="sub">Enter your seat of power.</div>
     <input type="email" id="auth-email" placeholder="your@email.com" autocomplete="email">
     <button id="auth-send-link">Send magic link</button>
@@ -771,6 +864,7 @@
   <div class="auth-box">
     <div class="seal-lg"><img src="seal-portrait.jpg" alt="The Vault"></div>
     <h2 class="crest" id="pg-title">Vault Key</h2>
+    <div class="brand-tag">The House of Kong</div>
     <div class="sub" id="pg-sub">Set a passphrase to protect your Vault identity.</div>
     <input type="password" id="pg-passphrase" placeholder="Passphrase" autocomplete="off">
     <input type="password" id="pg-passphrase-confirm" placeholder="Confirm passphrase" autocomplete="off">
@@ -780,6 +874,8 @@
 </div>
 
 <canvas id="liquid-canvas-main"></canvas>
+
+<div id="offline-banner">Showing your last saved data — offline right now.</div>
 
 <div class="app">
   <!-- ============ SIDE RAIL ============ -->
@@ -858,6 +954,14 @@
         <div class="tag">house of kong</div>
       </div>
       <div class="top-right">
+        <div class="search-icon" id="search-icon" title="Search">🔍</div>
+        <div class="notif-bell-wrap">
+          <div class="notif-bell" id="notif-bell">🔔<span class="notif-badge" id="notif-badge" style="display:none;">0</span></div>
+          <div class="notif-dropdown" id="notif-dropdown">
+            <div class="notif-dropdown-head">Notifications</div>
+            <div id="notif-list"></div>
+          </div>
+        </div>
         <div class="vault-pill"><span class="pulse"></span> VAULT SECURE</div>
         <div class="clockbox">
           <div class="time mono" id="clock">—</div>
@@ -1547,6 +1651,22 @@
             <button id="settings-signout-btn" style="padding:10px 22px; border-radius:10px; border:1px solid #4a2b26; background:transparent; color:#c98c7f; font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.08em; cursor:pointer; text-transform:uppercase;">Sign Out</button>
           </div>
         </div>
+
+        <div class="c12 panel">
+          <div class="panel-head"><h3>API Usage Today</h3><span class="count mono" id="usage-status">—</span></div>
+          <div class="goal-meta" style="margin-bottom:14px;">Live calls only — anything served from cache doesn't count against a provider's daily limit.</div>
+          <div id="usage-list"></div>
+        </div>
+
+        <div class="c12 panel">
+          <div class="panel-head" style="border-bottom:1px solid #4a2b26;"><h3 style="color:#c98c7f;">Danger Zone</h3></div>
+          <div class="goal-meta" style="margin:14px 0;">Permanently deletes your account and everything tied to it — tasks, goals, fitness logs, treasury data, Vault messages, everything. This cannot be undone and cannot be recovered.</div>
+          <div class="add-row" style="margin-top:0; max-width:420px;">
+            <input type="text" id="delete-account-confirm-input" placeholder="Type DELETE to confirm">
+            <button id="delete-account-btn" style="border-color:#4a2b26; color:#c98c7f;">Delete My Account</button>
+          </div>
+          <div class="sync-status" id="delete-account-status"></div>
+        </div>
       </div>
     </section>
 
@@ -1602,6 +1722,46 @@
       <span class="mnav-label">Settings</span>
     </div>
   </nav>
+</div>
+
+<div id="onboard-overlay">
+  <div class="onboard-box">
+    <div class="onboard-step" data-step="0">
+      <div class="onboard-eyebrow">Welcome, Sovereign</div>
+      <h2 class="crest">The Throne</h2>
+      <p>Everything you rule over, in one seat of power — news, fitness, tasks, treasury, and a private encrypted Vault for messages only you can read.</p>
+    </div>
+    <div class="onboard-step" data-step="1" style="display:none;">
+      <div class="onboard-eyebrow">The Ledger</div>
+      <h2 class="crest">Tasks, Goals & Fitness</h2>
+      <p>Track your day-to-day under Tasks — includes a focus timer, time-blocking, and a calendar. Goals track anything longer-term. Fitness logs your training and surfaces personal bests.</p>
+    </div>
+    <div class="onboard-step" data-step="2" style="display:none;">
+      <div class="onboard-eyebrow">The Vault</div>
+      <h2 class="crest">Private, End-to-End</h2>
+      <p>Messages here are encrypted in your browser before they ever reach the server. You'll set a Vault passphrase the first time you open it — write it down somewhere safe, since there's genuinely no way to recover it if it's lost.</p>
+    </div>
+    <div class="onboard-step" data-step="3" style="display:none;">
+      <div class="onboard-eyebrow">One More Thing</div>
+      <h2 class="crest">Search Anything</h2>
+      <p>Press <span class="onboard-kbd">⌘K</span> (or tap the 🔍 up top) any time to jump straight to a task, goal, or fitness log by name.</p>
+    </div>
+    <div class="onboard-dots">
+      <span class="onboard-dot on" data-dot="0"></span><span class="onboard-dot" data-dot="1"></span><span class="onboard-dot" data-dot="2"></span><span class="onboard-dot" data-dot="3"></span>
+    </div>
+    <div class="onboard-actions">
+      <button id="onboard-skip">Skip</button>
+      <button id="onboard-next">Next</button>
+    </div>
+  </div>
+</div>
+
+<div id="search-overlay">
+  <div class="search-box">
+    <input type="text" id="search-input" placeholder="Search tasks, goals, fitness logs...">
+    <div class="search-hint">Doesn't search Vault messages — those stay encrypted and out of any search index, by design.</div>
+    <div id="search-results"></div>
+  </div>
 </div>
 
 <div id="holding-detail-overlay">
@@ -1721,8 +1881,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="supabase-config.js"></script>
 <script src="supabase-client.js"></script>
+<script src="data-proxy-client.js"></script>
 <script src="vault-crypto.js"></script>
 <script src="auth.js"></script>
+<script src="offline-cache.js"></script>
 <script src="sync.js"></script>
 <script src="spotify-config.js"></script>
 <script src="spotify.js"></script>

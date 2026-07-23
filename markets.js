@@ -1,53 +1,58 @@
 /* ============================================================
    THE THRONE — MARKETS ENGINE
-   Crypto: CoinGecko public API, free, no key, no signup.
-   Stocks: Twelve Data, free tier, needs a key (see market-config.js).
+   Crypto and stock data both route through the data-proxy Edge
+   Function now (see data-proxy.ts) instead of calling CoinGecko/
+   Twelve Data directly — the proxy caches responses and serves the
+   last-known value if a provider is having a bad day, instead of a
+   hard failure. Twelve Data's key lives server-side as a secret now
+   too (see market-config.js).
    ============================================================ */
 
 const ThroneMarkets = (() => {
 
-  const COINGECKO = "https://api.coingecko.com/api/v3";
-  const TWELVEDATA = "https://api.twelvedata.com";
+  function hasStockKey() {
+    return !!(typeof MARKET_CONFIG !== "undefined" && MARKET_CONFIG.stocksConfigured);
+  }
 
   // ---------- crypto ----------
   async function getCryptoPrices(ids, currency = "usd") {
     if (!ids.length) return {};
-    const url = `${COINGECKO}/simple/price?ids=${ids.join(",")}&vs_currencies=${currency}&include_24hr_change=true`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("CoinGecko request failed");
-    return res.json(); // { bitcoin: { usd: 67000, usd_24h_change: 2.1 }, ... } — key matches currency param
+    try {
+      const res = await ThroneProxy.call("crypto_price", { ids, currency });
+      return res.data;
+    } catch (e) {
+      return {}; // matches prior behavior's shape on failure — callers already handle empty
+    }
   }
 
   async function getCryptoChart(id, days = 7, currency = "usd") {
-    const url = `${COINGECKO}/coins/${id}/market_chart?vs_currency=${currency}&days=${days}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("CoinGecko chart request failed");
-    const data = await res.json();
-    return data.prices.map(([ts, price]) => ({ t: ts, y: price })); // [{t,y}, ...]
+    try {
+      const res = await ThroneProxy.call("crypto_chart", { id, days, currency });
+      return res.data;
+    } catch (e) {
+      return [];
+    }
   }
 
-  // ---------- stocks (needs a Twelve Data key) ----------
-  function hasStockKey() {
-    return !!(MARKET_CONFIG.twelveDataApiKey && MARKET_CONFIG.twelveDataApiKey.trim());
-  }
-
+  // ---------- stocks (needs TWELVEDATA_API_KEY set server-side) ----------
   async function getStockPrices(symbols) {
     if (!hasStockKey() || !symbols.length) return {};
-    const url = `${TWELVEDATA}/quote?symbol=${symbols.join(",")}&apikey=${MARKET_CONFIG.twelveDataApiKey}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    // Twelve Data returns a single object for one symbol, or {symbol: {...}} for many
-    if (symbols.length === 1) return { [symbols[0]]: data };
-    return data;
+    try {
+      const res = await ThroneProxy.call("stock_price", { symbols });
+      return res.data;
+    } catch (e) {
+      return {};
+    }
   }
 
   async function getStockChart(symbol, interval = "1day", outputsize = 30) {
     if (!hasStockKey()) return [];
-    const url = `${TWELVEDATA}/time_series?symbol=${symbol}&interval=${interval}&outputsize=${outputsize}&apikey=${MARKET_CONFIG.twelveDataApiKey}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (!data.values) return [];
-    return data.values.reverse().map(v => ({ t: new Date(v.datetime).getTime(), y: parseFloat(v.close) }));
+    try {
+      const res = await ThroneProxy.call("stock_chart", { symbol, interval, outputsize });
+      return res.data;
+    } catch (e) {
+      return [];
+    }
   }
 
   return { getCryptoPrices, getCryptoChart, getStockPrices, getStockChart, hasStockKey };

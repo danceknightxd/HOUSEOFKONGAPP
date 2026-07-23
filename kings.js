@@ -44,61 +44,28 @@ const ThroneKings = (() => {
   }
 
   // ---------- KING'S ART EXHIBITIONS (OpenSea) ----------
+  // Now routed through the data-proxy (see data-proxy.ts) — caches
+  // stats for 10 minutes and serves the last-known value if OpenSea
+  // is briefly down, instead of a hard error.
   async function getCollectionStats(slug) {
-    const headers = {};
-    if (KINGS_CONFIG.exhibitions.openseaApiKey) {
-      headers["X-API-KEY"] = KINGS_CONFIG.exhibitions.openseaApiKey;
-    }
-    const res = await fetch(`https://api.opensea.io/api/v2/collections/${slug}/stats`, { headers });
-    if (!res.ok) throw new Error(`OpenSea request failed (${res.status})`);
-    return res.json();
-  }
-
-  async function getCollectionInfo(slug) {
-    const headers = {};
-    if (KINGS_CONFIG.exhibitions.openseaApiKey) {
-      headers["X-API-KEY"] = KINGS_CONFIG.exhibitions.openseaApiKey;
-    }
-    const res = await fetch(`https://api.opensea.io/api/v2/collections/${slug}`, { headers });
-    if (!res.ok) throw new Error(`OpenSea request failed (${res.status})`);
-    return res.json();
+    const res = await ThroneProxy.call("opensea_stats", { slug });
+    return res.data;
   }
 
   // ---------- KING'S COLOSSEUM (YouTube channel) ----------
-  // Uses the real YouTube Data API v3 (needs YOUTUBE_CONFIG.apiKey) —
-  // an earlier version used YouTube's free RSS feed instead, but that
-  // endpoint has ongoing, widely-reported reliability problems
-  // (intermittent failures even for active channels), independent of
-  // anything in this app. This is the reliable path: channels.list to
-  // find the channel's "uploads" playlist (1 unit), then
-  // playlistItems.list to read its contents (1 unit) — 2 units total
-  // per refresh, cheap against the 10,000/day free quota.
+  // Also routed through the proxy now — the YOUTUBE_API_KEY lives
+  // server-side as an Edge Function secret, not in client code, and
+  // responses are cached for 15 minutes so opening this tab
+  // repeatedly doesn't burn quota or hit a live YouTube call every time.
   async function getChannelVideos(channelId, count = 12) {
-    if (!YOUTUBE_CONFIG.apiKey) throw new Error("NEEDS_KEY");
-
-    const chRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${channelId}&key=${YOUTUBE_CONFIG.apiKey}`);
-    const chData = await chRes.json();
-    if (chData.error) throw new Error(chData.error.message || "YouTube API error");
-    const uploadsPlaylistId = chData.items && chData.items[0] && chData.items[0].contentDetails.relatedPlaylists.uploads;
-    if (!uploadsPlaylistId) throw new Error("Channel not found.");
-
-    const plRes = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${uploadsPlaylistId}&maxResults=${count}&key=${YOUTUBE_CONFIG.apiKey}`);
-    const plData = await plRes.json();
-    if (plData.error) throw new Error(plData.error.message || "YouTube API error");
-
-    return (plData.items || []).map(item => ({
-      title: item.snippet.title,
-      link: `https://www.youtube.com/watch?v=${item.snippet.resourceId.videoId}`,
-      thumbnail: (item.snippet.thumbnails && (item.snippet.thumbnails.medium || item.snippet.thumbnails.default) || {}).url || null,
-      published: item.snippet.publishedAt
-    }));
+    const res = await ThroneProxy.call("youtube_channel", { channelId, count });
+    return res.data.map(v => ({ title: v.title, link: v.link, thumbnail: v.thumbnail, published: v.date }));
   }
 
   return {
     renderInstagramPosts,
     spotifyShowEmbedUrl,
     getCollectionStats,
-    getCollectionInfo,
     getChannelVideos
   };
 })();

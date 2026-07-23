@@ -43,7 +43,7 @@ const ThroneAuth = (() => {
 
     if (mode === "create") {
       title.textContent = "Create Your Vault Key";
-      sub.textContent = "This passphrase protects your private messages. Remember it — you'll need it to unlock the Vault on any other device.";
+      sub.textContent = "This passphrase protects your private messages. There is no reset and no recovery option — if you forget it and lose access to every device that has it unlocked, your message history is gone permanently, by design. That's what real end-to-end encryption means: nobody, including you without this passphrase, can get it back. Write it down somewhere safe before continuing.";
       confirmInput.style.display = "block";
       submitBtn.textContent = "Create Vault key";
     } else {

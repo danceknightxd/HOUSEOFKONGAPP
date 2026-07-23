@@ -86,16 +86,12 @@ const ThroneFeeds = (() => {
     document.body.appendChild(script);
   }
 
-  // ---------- External RSS via rss2json ----------
+  // ---------- External RSS via the data-proxy (was: direct rss2json call) ----------
   async function fetchRssTopic(topicConfig) {
-    const key = THRONE_CONFIG.rss2jsonApiKey ? `&api_key=${THRONE_CONFIG.rss2jsonApiKey}` : "";
-    const count = `&count=${THRONE_CONFIG.itemsPerTopic}`;
-    const endpoint = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(topicConfig.rss)}${key}${count}`;
     try {
-      const res = await fetch(endpoint);
-      const data = await res.json();
-      if (data.status !== "ok") throw new Error(data.message || "feed error");
-      const entries = (data.items || []).slice(0, THRONE_CONFIG.itemsPerTopic).map(item => {
+      const res = await ThroneProxy.call("news_rss", { rssUrl: topicConfig.rss, count: THRONE_CONFIG.itemsPerTopic });
+      const items = res.data || [];
+      const entries = items.slice(0, THRONE_CONFIG.itemsPerTopic).map(item => {
         // rss2json auto-extracts a thumbnail for most sources, but not
         // all (some feeds just don't tag images the way it expects) —
         // fall back to pulling the first <img> out of the article's

@@ -116,6 +116,52 @@ const ThroneSync = (() => {
       .subscribe();
   }
 
+  // ---------- NOTIFICATIONS (in-app history) ----------
+  async function loadNotifications(limit = 30) {
+    const user = ThroneAuth.getUser();
+    const { data, error } = await supabaseClient
+      .from("notifications").select("*").eq("user_id", user.id)
+      .order("created_at", { ascending: false }).limit(limit);
+    if (error) throw error;
+    return data;
+  }
+
+  async function markNotificationRead(id) {
+    return supabaseClient.from("notifications").update({ read: true }).eq("id", id);
+  }
+
+  async function markAllNotificationsRead() {
+    const user = ThroneAuth.getUser();
+    return supabaseClient.from("notifications").update({ read: true }).eq("user_id", user.id).eq("read", false);
+  }
+
+  function subscribeNotifications(onChange) {
+    const user = ThroneAuth.getUser();
+    return supabaseClient
+      .channel("notifications-changes-" + uniqueChannelSuffix())
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, onChange)
+      .subscribe();
+  }
+
+  // ---------- API USAGE (Settings panel) ----------
+  async function loadApiUsageToday() {
+    const since = new Date(); since.setHours(0, 0, 0, 0);
+    const { data, error } = await supabaseClient
+      .from("api_usage_log").select("domain").gte("called_at", since.toISOString());
+    if (error) throw error;
+    const counts = {};
+    (data || []).forEach(row => { counts[row.domain] = (counts[row.domain] || 0) + 1; });
+    return counts;
+  }
+
+  // ---------- ACCOUNT DELETION ----------
+  async function deleteMyAccount() {
+    const { data, error } = await supabaseClient.functions.invoke("delete-account", { body: {} });
+    if (error) throw error;
+    if (data && data.error) throw new Error(data.error);
+    return data;
+  }
+
   // ---------- FOCUS SESSIONS (real time-tracking) ----------
   async function logFocusSession(taskTitle, durationMinutes) {
     const user = ThroneAuth.getUser();
@@ -723,7 +769,7 @@ const ThroneSync = (() => {
     const decrypted = [];
     for (const msg of data) {
       try {
-        const plaintext = await VaultCrypto.decryptMessage(msg.ciphertext, msg.iv, otherPublicKeyBase64);
+        const plaintext = await VaultCrypto.decryptMessage(msg.ciphertext, msg.iv, otherPublicKeyBase64, msg.salt);
         decrypted.push({ ...msg, plaintext });
       } catch (e) {
         decrypted.push({ ...msg, plaintext: "[Could not decrypt — key mismatch]" });
@@ -734,9 +780,9 @@ const ThroneSync = (() => {
 
   async function sendMessage(threadId, plaintext, otherPublicKeyBase64) {
     const user = ThroneAuth.getUser();
-    const { ciphertext, iv } = await VaultCrypto.encryptMessage(plaintext, otherPublicKeyBase64);
+    const { ciphertext, iv, salt } = await VaultCrypto.encryptMessage(plaintext, otherPublicKeyBase64);
     return supabaseClient.from("vault_messages").insert({
-      thread_id: threadId, sender_id: user.id, ciphertext, iv
+      thread_id: threadId, sender_id: user.id, ciphertext, iv, salt
     });
   }
 
@@ -754,6 +800,8 @@ const ThroneSync = (() => {
     loadTasks, addTask, toggleTask, removeTask, purgeOldCompletedTasks, subscribeTasks, setTaskReminder,
     loadTimeBlocks, addTimeBlock, removeTimeBlock, subscribeTimeBlocks,
     loadSocialFollows, addSocialFollow, removeSocialFollow, subscribeSocialFollows,
+    loadNotifications, markNotificationRead, markAllNotificationsRead, subscribeNotifications,
+    loadApiUsageToday, deleteMyAccount,
     logFocusSession, loadFocusSessions,
     loadGoals, addGoal, updateGoalProgress, removeGoal, subscribeGoals,
     loadFitnessLogs, logMetric, subscribeFitness,

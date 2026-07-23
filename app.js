@@ -14,6 +14,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     navigator.storage.persist().catch(() => {});
   }
 
+  // ---------- offline indicator (Phase 1 offline support) ----------
+  // Sticky on purpose — set true by either a real 'offline' event or
+  // any single cachedLoad() falling back to cached data, and only
+  // cleared by a genuine 'online' event, not by one section happening
+  // to reconnect while others are still stale. See offline-cache.js.
+  function setOfflineIndicator(isOffline) {
+    document.getElementById("offline-banner").classList.toggle("show", isOffline);
+  }
+  window.addEventListener("online", () => setOfflineIndicator(false));
+  window.addEventListener("offline", () => setOfflineIndicator(true));
+  if (!navigator.onLine) setOfflineIndicator(true);
+
   // Handle the redirect back from Spotify's auth page, if that's why we're here.
   await ThroneSpotify.handleRedirect();
 
@@ -136,6 +148,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     bootCustomTopics();
     bootMarkets();
     bootSettings();
+    bootNotifications();
+    bootSearch();
+    bootOnboarding();
     bootAlliances();
     bootCalling();
     bootKings();
@@ -246,10 +261,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function bootTasks() {
     const statusEl = document.getElementById("task-sync-status");
     try {
-      await ThroneSync.purgeOldCompletedTasks();
-      const tasks = await ThroneSync.loadTasks();
+      await ThroneSync.purgeOldCompletedTasks().catch(() => {}); // skip silently if offline — nothing to purge without a connection anyway
+      const { data: tasks, isOffline } = await ThroneOfflineCache.cachedLoad("tasks", () => ThroneSync.loadTasks());
       renderTasks(tasks);
-      statusEl.textContent = "Synced across your devices.";
+      if (isOffline) { setOfflineIndicator(true); statusEl.textContent = "Offline — showing your last saved tasks."; }
+      else statusEl.textContent = "Synced across your devices.";
     } catch (e) {
       statusEl.textContent = "Couldn't load tasks — check Supabase config.";
     }
@@ -320,11 +336,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   let cachedPRs = [];
   async function refreshPersonalBests(forceRender) {
     try {
-      const logs = await ThroneSync.loadExerciseLogs(200);
+      const { data: logs, isOffline } = await ThroneOfflineCache.cachedLoad("exercise-logs", () => ThroneSync.loadExerciseLogs(200));
       const prs = computePRs(logs);
       cachedPRs = Object.values(prs).sort((a, b) =>
         (b.weight * (1 + b.reps / 30)) - (a.weight * (1 + a.reps / 30))
       );
+      if (isOffline) setOfflineIndicator(true);
     } catch (e) {
       cachedPRs = [];
     }
@@ -553,7 +570,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   async function renderExerciseData() {
     try {
-      const logs = await ThroneSync.loadExerciseLogs(200);
+      const { data: logs, isOffline } = await ThroneOfflineCache.cachedLoad("exercise-logs", () => ThroneSync.loadExerciseLogs(200));
+      if (isOffline) setOfflineIndicator(true);
       const prs = computePRs(logs);
 
       const listEl = document.getElementById("ex-log-list");
@@ -672,8 +690,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   async function bootGoals() {
     try {
-      const goals = await ThroneSync.loadGoals();
+      const { data: goals, isOffline } = await ThroneOfflineCache.cachedLoad("goals", () => ThroneSync.loadGoals());
       renderGoals(goals);
+      if (isOffline) setOfflineIndicator(true);
     } catch (e) {
       document.getElementById("goal-list").innerHTML =
         `<div class="feed-empty">Couldn't load goals — check Supabase config.</div>`;
@@ -947,7 +966,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let ytFollowedResults = {};   // channel follow id -> its latest videos
   let ytTopicResults = {};      // topic follow id -> that topic's results
 
-  function ytHasKey() { return !!(YOUTUBE_CONFIG.apiKey && YOUTUBE_CONFIG.apiKey.trim()); }
+  function ytHasKey() { return !!(typeof YOUTUBE_CONFIG !== "undefined" && YOUTUBE_CONFIG.configured); }
 
   function renderYtChannelChips() {
     const el = document.getElementById("yt-followed-list");
@@ -980,9 +999,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function showYtNeedsKeyNotice() {
-    document.getElementById("yt-feed-status").textContent = "needs API key";
+    document.getElementById("yt-feed-status").textContent = "needs setup";
     ThroneFeeds.renderNewsList(document.getElementById("yt-feed-list"), [],
-      "Add a free YouTube API key in <code>youtube-config.js</code> to enable this feed — powers both topic search and following a channel. See the setup notes in that file.");
+      "Set a YouTube API key as an Edge Function secret, then flip <code>configured: true</code> in youtube-config.js — see the setup notes in that file.");
   }
 
   async function refreshYtChannelVideos() {
@@ -1318,8 +1337,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const statusEl = document.getElementById("portfolio-sync-status");
     async function refreshPortfolio() {
       try {
-        const holdings = await ThroneSync.loadPortfolio();
+        const { data: holdings, isOffline } = await ThroneOfflineCache.cachedLoad("portfolio-holdings", () => ThroneSync.loadPortfolio());
         await renderPortfolio(holdings);
+        if (isOffline) { setOfflineIndicator(true); statusEl.textContent = "Offline — showing your last saved holdings (prices may be stale too)."; }
       } catch (e) {
         statusEl.textContent = "Couldn't load portfolio — check Supabase config.";
       }
@@ -1816,6 +1836,176 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  // ---------- NOTIFICATIONS (bell dropdown) ----------
+  function timeAgoShort(dateStr) {
+    return ThroneFeeds.timeAgo(dateStr);
+  }
+
+  function renderNotifList(notifications) {
+    const listEl = document.getElementById("notif-list");
+    const unreadCount = notifications.filter(n => !n.read).length;
+    const badge = document.getElementById("notif-badge");
+    badge.textContent = unreadCount > 9 ? "9+" : String(unreadCount);
+    badge.style.display = unreadCount > 0 ? "flex" : "none";
+
+    if (!notifications.length) {
+      listEl.innerHTML = `<div class="feed-empty">Nothing yet.</div>`;
+      return;
+    }
+    listEl.innerHTML = notifications.map(n => `
+      <div class="notif-item ${n.read ? "" : "unread"}" data-id="${n.id}" data-url="${n.url || ""}">
+        <div class="n-title">${n.title}</div>
+        ${n.body ? `<div class="n-body">${n.body}</div>` : ""}
+        <div class="n-time">${timeAgoShort(n.created_at)}</div>
+      </div>`).join("");
+
+    listEl.querySelectorAll(".notif-item").forEach(item => {
+      item.addEventListener("click", async () => {
+        await ThroneSync.markNotificationRead(item.dataset.id);
+      });
+    });
+  }
+
+  async function bootNotifications() {
+    let notifications = [];
+    try {
+      notifications = await ThroneSync.loadNotifications();
+      renderNotifList(notifications);
+    } catch (e) {
+      // Notifications table might not exist yet if this migration
+      // hasn't been run — fail quietly rather than break the whole app.
+    }
+
+    const bell = document.getElementById("notif-bell");
+    const dropdown = document.getElementById("notif-dropdown");
+    bell.addEventListener("click", (e) => {
+      e.stopPropagation();
+      dropdown.classList.toggle("show");
+    });
+    document.addEventListener("click", (e) => {
+      if (!dropdown.contains(e.target) && e.target !== bell) dropdown.classList.remove("show");
+    });
+
+    ThroneSync.subscribeNotifications(async () => {
+      try {
+        notifications = await ThroneSync.loadNotifications();
+        renderNotifList(notifications);
+      } catch (e) { /* table may not exist yet — see above */ }
+    });
+  }
+
+  // ---------- GLOBAL SEARCH (v1) ----------
+  // Deliberately scoped: searches Tasks, Goals, and Fitness logs only.
+  // Vault messages are NOT indexed here on purpose — building a search
+  // index means keeping plaintext somewhere searchable, which cuts
+  // against the whole point of end-to-end encrypting them in the
+  // first place. Reuses the same cache keys offline-cache.js already
+  // populates, so search works offline too, for free.
+  function switchToView(viewName) {
+    document.querySelectorAll('.rail-btn[data-view]').forEach(b => b.classList.toggle("active", b.dataset.view === viewName));
+    document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + viewName));
+  }
+
+  async function runGlobalSearch(query) {
+    const q = query.trim().toLowerCase();
+    const resultsEl = document.getElementById("search-results");
+    if (!q) { resultsEl.innerHTML = ""; return; }
+
+    const [tasksRes, goalsRes, logsRes] = await Promise.allSettled([
+      ThroneOfflineCache.cachedLoad("tasks", () => ThroneSync.loadTasks()),
+      ThroneOfflineCache.cachedLoad("goals", () => ThroneSync.loadGoals()),
+      ThroneOfflineCache.cachedLoad("exercise-logs", () => ThroneSync.loadExerciseLogs(200))
+    ]);
+
+    const results = [];
+    if (tasksRes.status === "fulfilled") {
+      tasksRes.value.data.filter(t => t.title.toLowerCase().includes(q)).slice(0, 6)
+        .forEach(t => results.push({ type: "Task", title: t.title, view: "productivity" }));
+    }
+    if (goalsRes.status === "fulfilled") {
+      goalsRes.value.data.filter(g => g.title.toLowerCase().includes(q)).slice(0, 6)
+        .forEach(g => results.push({ type: "Goal", title: g.title, view: "goals" }));
+    }
+    if (logsRes.status === "fulfilled") {
+      const seen = new Set();
+      logsRes.value.data.filter(l => l.exercise_name.toLowerCase().includes(q)).forEach(l => {
+        if (seen.has(l.exercise_name)) return;
+        seen.add(l.exercise_name);
+        results.push({ type: "Fitness", title: l.exercise_name, view: "fitness" });
+      });
+    }
+
+    resultsEl.innerHTML = results.length
+      ? results.slice(0, 20).map(r => `
+          <div class="search-result" data-view="${r.view}">
+            <span class="sr-type">${r.type}</span><span class="sr-title">${r.title}</span>
+          </div>`).join("")
+      : `<div class="feed-empty">No matches in Tasks, Goals, or Fitness.</div>`;
+
+    resultsEl.querySelectorAll(".search-result").forEach(el => {
+      el.addEventListener("click", () => {
+        switchToView(el.dataset.view);
+        document.getElementById("search-overlay").classList.remove("show");
+      });
+    });
+  }
+
+  function bootSearch() {
+    const overlay = document.getElementById("search-overlay");
+    const input = document.getElementById("search-input");
+    document.getElementById("search-icon").addEventListener("click", () => {
+      overlay.classList.add("show");
+      input.value = "";
+      document.getElementById("search-results").innerHTML = "";
+      setTimeout(() => input.focus(), 50);
+    });
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.classList.remove("show"); });
+    document.addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        overlay.classList.add("show");
+        setTimeout(() => input.focus(), 50);
+      }
+      if (e.key === "Escape") overlay.classList.remove("show");
+    });
+    let debounceTimer = null;
+    input.addEventListener("input", () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => runGlobalSearch(input.value), 150);
+    });
+  }
+
+  // ---------- ONBOARDING (first run only, per account) ----------
+  function bootOnboarding() {
+    const user = ThroneAuth.getUser();
+    const key = "throne-onboarded-" + user.id;
+    if (localStorage.getItem(key)) return; // seen it already
+
+    const overlay = document.getElementById("onboard-overlay");
+    const steps = overlay.querySelectorAll(".onboard-step");
+    const dots = overlay.querySelectorAll(".onboard-dot");
+    let step = 0;
+
+    function render() {
+      steps.forEach((el, i) => el.style.display = i === step ? "block" : "none");
+      dots.forEach((el, i) => el.classList.toggle("on", i === step));
+      document.getElementById("onboard-next").textContent = step === steps.length - 1 ? "Enter" : "Next";
+    }
+    function finish() {
+      localStorage.setItem(key, "1");
+      overlay.classList.remove("show");
+    }
+    document.getElementById("onboard-next").addEventListener("click", () => {
+      step++;
+      if (step >= steps.length) { finish(); return; }
+      render();
+    });
+    document.getElementById("onboard-skip").addEventListener("click", finish);
+
+    render();
+    overlay.classList.add("show");
+  }
+
   // ---------- SETTINGS ----------
   async function bootSettings() {
     const user = ThroneAuth.getUser();
@@ -1911,6 +2101,48 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (confirm("Sign out of The Throne on this device?")) {
         await ThroneAuth.signOut();
         window.location.reload();
+      }
+    });
+
+    // ---- API usage today ----
+    const USAGE_LABELS = {
+      stock_price: "Twelve Data (stock prices)", stock_chart: "Twelve Data (stock charts)",
+      youtube_channel: "YouTube (channels)", youtube_search: "YouTube (search)", youtube_resolve_handle: "YouTube (handle lookup)",
+      opensea_stats: "OpenSea", news_rss: "News RSS",
+      crypto_price: "CoinGecko (prices)", crypto_chart: "CoinGecko (charts)"
+    };
+    try {
+      const usage = await ThroneSync.loadApiUsageToday();
+      const entries = Object.entries(usage);
+      const usageListEl = document.getElementById("usage-list");
+      if (!entries.length) {
+        usageListEl.innerHTML = `<div class="feed-empty">No live calls yet today — everything so far came from cache.</div>`;
+      } else {
+        usageListEl.innerHTML = entries.map(([domain, count]) => `
+          <div class="task-row"><div class="txt">${USAGE_LABELS[domain] || domain}</div><div class="prio">${count}</div></div>
+        `).join("");
+      }
+      document.getElementById("usage-status").textContent = "since midnight";
+    } catch (e) {
+      document.getElementById("usage-status").textContent = "unavailable";
+    }
+
+    // ---- delete account ----
+    document.getElementById("delete-account-btn").addEventListener("click", async () => {
+      const input = document.getElementById("delete-account-confirm-input");
+      const statusEl = document.getElementById("delete-account-status");
+      if (input.value.trim() !== "DELETE") {
+        statusEl.textContent = "Type DELETE (all caps) in the box first.";
+        return;
+      }
+      if (!confirm("This permanently deletes your account and everything in it — tasks, goals, fitness logs, treasury data, every Vault message. There is no undo. Continue?")) return;
+      statusEl.textContent = "Deleting…";
+      try {
+        await ThroneSync.deleteMyAccount();
+        alert("Your account has been deleted.");
+        window.location.reload();
+      } catch (e) {
+        statusEl.textContent = "Couldn't delete account: " + e.message;
       }
     });
   }
@@ -2383,11 +2615,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         </a>`).join("");
       statusEl.textContent = `${videos.length} latest`;
     } catch (e) {
-      if (e.message === "NEEDS_KEY") {
-        grid.innerHTML = `<div class="feed-empty">Add a free YouTube API key in <code>youtube-config.js</code> to show this feed — see the setup notes in that file.</div>`;
-        statusEl.textContent = "needs API key";
+      const notConfigured = /YouTube key configured server-side/i.test(e.message || "");
+      if (notConfigured) {
+        grid.innerHTML = `<div class="feed-empty">Set a YouTube API key as an Edge Function secret — see DATA_PROXY_SETUP.md.</div>`;
+        statusEl.textContent = "needs setup";
       } else {
-        grid.innerHTML = `<div class="feed-empty">Couldn't load the channel feed right now — check that your YouTube API key in <code>youtube-config.js</code> is valid.</div>`;
+        grid.innerHTML = `<div class="feed-empty">Couldn't load the channel feed right now — check the YouTube key set on the data-proxy Edge Function is valid.</div>`;
         statusEl.textContent = "unavailable";
       }
     }
